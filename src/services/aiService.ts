@@ -1,4 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+// services/aiService.ts
+import { SuspiciousActivityService } from './suspiciousActivityService';
+import type { SuspiciousActivity } from './suspiciousActivityService';
+import type { SeiTransaction } from './blockchainService';
+import { BlockchainService } from './blockchainService';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyD_nJI8HY7TKW5cMUk0hW8zVCO0tsU9m-0');
 
@@ -9,11 +14,17 @@ export interface WalletAnalysis {
   aiInsights: string[];
 }
 
+export type RiskLevel = 'low' | 'medium' | 'high';
+
 export interface TransactionAnalysis {
-  txHash: string;
   summary: string;
-  riskLevel: 'low' | 'medium' | 'high';
-  suspiciousIndicators: string[];
+  riskLevel: RiskLevel;
+  details?: {
+    suspiciousFindings?: SuspiciousActivity[];
+    gasUsed?: number;
+    fee?: number;
+    txHash?: string;
+  };
 }
 
 export class AIService {
@@ -89,71 +100,71 @@ Please provide a concise analysis of the wallet activity, potential risks, and a
     }
   }
 
-  static async analyzeTransaction(txHash: string): Promise<TransactionAnalysis> {
+  static async analyzeTransaction(hashOrTx: string | SeiTransaction): Promise<TransactionAnalysis> {
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      
-      const prompt = `Analyze this Sei Network transaction for suspicious activity:
-Transaction Hash: ${txHash}
-
-Please provide a detailed analysis of the transaction, focusing on:
-1. Transaction type and purpose
-2. Potential security risks
-3. Any suspicious patterns or indicators
-4. Risk level assessment (low/medium/high)
-
-Format your response as follows:
-
-## Transaction Analysis
-**Hash**: ${txHash}
-
-### Summary
-[Provide a 2-3 sentence summary of the transaction]
-
-### Risk Level
-[low/medium/high with explanation]
-
-### Key Indicators
-- [List 3-5 key indicators about the transaction]
-- [Include any suspicious patterns or notable behavior]`;
-
-      const result = await model.generateContent(prompt);
-      const response = result.response.text();
-      
-      // Extract risk level from response
-      let riskLevel: 'low' | 'medium' | 'high' = 'low';
-      if (response.toLowerCase().includes('high')) {
-        riskLevel = 'high';
-      } else if (response.toLowerCase().includes('medium')) {
-        riskLevel = 'medium';
+      let tx: SeiTransaction | null = null;
+      if (typeof hashOrTx === 'string') {
+        tx = await BlockchainService.getTransaction(hashOrTx);
+        // If backend didn't return tx, we still proceed with a minimal object
+      } else {
+        tx = hashOrTx;
       }
-      
-      // Extract indicators from response
-      const indicators: string[] = [];
-      const indicatorsMatch = response.match(/### Key Indicators\s*([\s\S]*?)(?:\n##|\n$)/i);
-      if (indicatorsMatch && indicatorsMatch[1]) {
-        const indicatorsText = indicatorsMatch[1].trim();
-        indicators.push(...indicatorsText.split('\n').filter(line => line.trim().startsWith('-')).map(line => line.trim().substring(1).trim()));
+
+      if (!tx) {
+        // fallback minimal analysis
+        return {
+          summary: 'Transaction details unavailable for full analysis.',
+          riskLevel: 'medium',
+          details: { txHash: typeof hashOrTx === 'string' ? hashOrTx : tx?.hash }
+        };
       }
-      
-      if (indicators.length === 0) {
-        indicators.push("Analysis completed successfully");
+
+      // Run the rule-based suspicious detection to get findings
+      const findings = await SuspiciousActivityService.analyzeTransaction(tx);
+
+      // Heuristic scoring: each high = 3, medium = 2, low = 1
+      let score = 0;
+      for (const f of findings) {
+        score += f.severity === 'high' ? 3 : f.severity === 'medium' ? 2 : 1;
       }
-      
+
+      // incorporate gas usage into score
+      const gasUsed = Number(tx.gasUsed ?? tx.gas_used ?? 0);
+      if (!Number.isNaN(gasUsed) && gasUsed > 1_000_000) score += 2;
+
+      let riskLevel: RiskLevel = 'low';
+      if (score >= 6) riskLevel = 'high';
+      else if (score >= 3) riskLevel = 'medium';
+
+      // Build a human-friendly summary
+      const summaryParts: string[] = [];
+      if (findings.length === 0) summaryParts.push('No immediate suspicious rule matches were found.');
+      else {
+        summaryParts.push(`${findings.length} suspicious pattern(s) detected:`);
+        for (const f of findings.slice(0, 5)) {
+          summaryParts.push(`• ${f.description} (confidence ${(f.confidence * 100).toFixed(0)}%)`);
+        }
+      }
+
+      const summary = summaryParts.join('\n');
+
       return {
-        txHash,
-        summary: response,
+        summary,
         riskLevel,
-        suspiciousIndicators: indicators
+        details: {
+          suspiciousFindings: findings,
+          gasUsed,
+          fee: Number(tx.fee ?? 0),
+          txHash: tx.hash
+        }
       };
-    } catch (error) {
-      console.error('AI Service Error:', error);
+    } catch (err) {
+      console.error('AIService.analyzeTransaction error:', err);
       return {
-        txHash,
-        summary: 'Analysis unavailable due to an error. Please try again later.',
-        riskLevel: 'low',
-        suspiciousIndicators: ['AI service unavailable: ' + (error instanceof Error ? error.message : 'Unknown error')]
+        summary: 'AI analysis failed or encountered an error.',
+        riskLevel: 'medium'
       };
     }
   }
+  
 } 

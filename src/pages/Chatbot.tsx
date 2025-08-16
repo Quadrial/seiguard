@@ -179,14 +179,14 @@ const Chatbot = () => {
                     <ul className="list-disc pl-5 mt-2 space-y-1">
                       <li>What is Sei Network?</li>
                       <li>How do I check a wallet balance?</li>
-                      <li>Analyze this wallet: 0x742d35Cc6634C0532925a3b844Bc454e4438f44e</li>
+                      <li>Analyze this wallet: 0x742d4...f44e</li>
                     </ul>
                   </div>
                   <div className="bg-gray-700 rounded-lg p-3 text-sm">
                     <p className="font-semibold">Example queries:</p>
                     <ul className="list-disc pl-5 mt-2 space-y-1">
                       <li>What is a blockchain?</li>
-                      <li>Check transaction: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef</li>
+                      <li>Check transaction: 0x123...bcdef</li>
                       <li>Block 1234567</li>
                     </ul>
                   </div>
