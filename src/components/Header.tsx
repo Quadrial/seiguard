@@ -1,5 +1,4 @@
 
-import React from 'react';
 import { FaSearch, FaCog, FaExchangeAlt } from 'react-icons/fa';
 import { Link } from 'react-router-dom'; // fixed from 'react-router' to 'react-router-dom'
 

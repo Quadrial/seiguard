@@ -85,7 +85,6 @@ export interface SeiPriceData {
 
 //helpers for seibackend
 const toStr = (n: any) => (n === null || n === undefined ? '0' : String(n));
-const isEvmAddress = (s: string) => /^0x[0-9a-fA-F]{40}$/.test(s);
 
 export class BlockchainService {
   /** Get recent blocks */
@@ -540,266 +539,266 @@ export class BlockchainService {
   }
   // --- robust contract tx discovery & summarization ---
 
-private static async fetchContractTxs(type: ContractType, address: string, limit = 1000) {
-  // Try a variety of common explorer endpoints and query param shapes
-  const candidateUrls = [
-    // explicit contract tx endpoints
-    `${SEISTREAM_API}/contracts/${type}/${address}/transactions`,
-    `${SEISTREAM_API}/contracts/${type}/${address}/txs`,
-    `${SEISTREAM_API}/contracts/${type}/${address}/logs`,
-    `${SEISTREAM_API}/contracts/${type}/${address}/events`,
+// private static async fetchContractTxs(type: ContractType, address: string, limit = 1000) {
+//   // Try a variety of common explorer endpoints and query param shapes
+//   const candidateUrls = [
+//     // explicit contract tx endpoints
+//     `${SEISTREAM_API}/contracts/${type}/${address}/transactions`,
+//     `${SEISTREAM_API}/contracts/${type}/${address}/txs`,
+//     `${SEISTREAM_API}/contracts/${type}/${address}/logs`,
+//     `${SEISTREAM_API}/contracts/${type}/${address}/events`,
 
-    // transaction search endpoints with query params (different backends use different param names)
-    `${SEISTREAM_API}/transactions?address=${encodeURIComponent(address)}&limit=${limit}`,
-    `${SEISTREAM_API}/transactions?to=${encodeURIComponent(address)}&limit=${limit}`,
-    `${SEISTREAM_API}/transactions?from=${encodeURIComponent(address)}&limit=${limit}`,
-    `${SEISTREAM_API}/transactions?contract=${encodeURIComponent(address)}&limit=${limit}`,
+//     // transaction search endpoints with query params (different backends use different param names)
+//     `${SEISTREAM_API}/transactions?address=${encodeURIComponent(address)}&limit=${limit}`,
+//     `${SEISTREAM_API}/transactions?to=${encodeURIComponent(address)}&limit=${limit}`,
+//     `${SEISTREAM_API}/transactions?from=${encodeURIComponent(address)}&limit=${limit}`,
+//     `${SEISTREAM_API}/transactions?contract=${encodeURIComponent(address)}&limit=${limit}`,
 
-    // generic search endpoint (some backends implement search/{query})
-    `${SEISTREAM_API}/search/${encodeURIComponent(address)}`
-  ];
+//     // generic search endpoint (some backends implement search/{query})
+//     `${SEISTREAM_API}/search/${encodeURIComponent(address)}`
+//   ];
 
-  for (const url of candidateUrls) {
-    try {
-      const res = await this.tryFetchJson(url);
-      if (!res.ok) {
-        // console.debug to help debug which endpoints fail
-        console.debug(`[fetchContractTxs] endpoint failed: ${url} status=${res.status}`);
-        continue;
-      }
-      const body = res.body;
-      // body might be array OR { data: [...] } OR { txs: [...] } OR object with nested fields
-      if (Array.isArray(body)) {
-        console.debug(`[fetchContractTxs] found array at ${url} length=${body.length}`);
-        return body;
-      }
-      if (body && Array.isArray(body.data)) {
-        console.debug(`[fetchContractTxs] found body.data at ${url} length=${body.data.length}`);
-        return body.data;
-      }
-      if (body && Array.isArray(body.txs)) {
-        console.debug(`[fetchContractTxs] found body.txs at ${url} length=${body.txs.length}`);
-        return body.txs;
-      }
-      // Some search endpoints return an object with transactions inside results
-      if (body && body.results && Array.isArray(body.results.txs)) {
-        console.debug(`[fetchContractTxs] found body.results.txs at ${url} length=${body.results.txs.length}`);
-        return body.results.txs;
-      }
-      // If search endpoint returns a contract object with a txs field
-      if (body && body.txs && Array.isArray(body.txs)) {
-        console.debug(`[fetchContractTxs] found contract.txs at ${url} length=${body.txs.length}`);
-        return body.txs;
-      }
+//   for (const url of candidateUrls) {
+//     try {
+//       const res = await this.tryFetchJson(url);
+//       if (!res.ok) {
+//         // console.debug to help debug which endpoints fail
+//         console.debug(`[fetchContractTxs] endpoint failed: ${url} status=${res.status}`);
+//         continue;
+//       }
+//       const body = res.body;
+//       // body might be array OR { data: [...] } OR { txs: [...] } OR object with nested fields
+//       if (Array.isArray(body)) {
+//         console.debug(`[fetchContractTxs] found array at ${url} length=${body.length}`);
+//         return body;
+//       }
+//       if (body && Array.isArray(body.data)) {
+//         console.debug(`[fetchContractTxs] found body.data at ${url} length=${body.data.length}`);
+//         return body.data;
+//       }
+//       if (body && Array.isArray(body.txs)) {
+//         console.debug(`[fetchContractTxs] found body.txs at ${url} length=${body.txs.length}`);
+//         return body.txs;
+//       }
+//       // Some search endpoints return an object with transactions inside results
+//       if (body && body.results && Array.isArray(body.results.txs)) {
+//         console.debug(`[fetchContractTxs] found body.results.txs at ${url} length=${body.results.txs.length}`);
+//         return body.results.txs;
+//       }
+//       // If search endpoint returns a contract object with a txs field
+//       if (body && body.txs && Array.isArray(body.txs)) {
+//         console.debug(`[fetchContractTxs] found contract.txs at ${url} length=${body.txs.length}`);
+//         return body.txs;
+//       }
 
-      // If search returned an object that contains possible transactions keyed by anything, try to extract arrays
-      const arr = Object.values(body).find((v: any) => Array.isArray(v));
-      if (Array.isArray(arr)) {
-        console.debug(`[fetchContractTxs] extracted array from body values at ${url} length=${arr.length}`);
-        return arr as any[];
-      }
+//       // If search returned an object that contains possible transactions keyed by anything, try to extract arrays
+//       const arr = Object.values(body).find((v: any) => Array.isArray(v));
+//       if (Array.isArray(arr)) {
+//         console.debug(`[fetchContractTxs] extracted array from body values at ${url} length=${arr.length}`);
+//         return arr as any[];
+//       }
 
-      // If nothing matched, continue trying other endpoints
-      console.debug(`[fetchContractTxs] endpoint OK but no tx array found at ${url}`);
-    } catch (err) {
-      console.debug(`[fetchContractTxs] error fetching ${url}:`, err);
-      continue;
-    }
-  }
+//       // If nothing matched, continue trying other endpoints
+//       console.debug(`[fetchContractTxs] endpoint OK but no tx array found at ${url}`);
+//     } catch (err) {
+//       console.debug(`[fetchContractTxs] error fetching ${url}:`, err);
+//       continue;
+//     }
+//   }
 
-  // Fallback: if dedicated endpoints failed, fetch a recent batch and filter client-side.
-  // This is expensive but often works if the server supports /transactions?limit=N.
-  try {
-    console.debug('[fetchContractTxs] falling back to scanning recent transactions endpoint');
-    // try a larger limit but be careful with performance / timeouts
-    const recent = await this.getRecentTransactions(Math.max(200, limit));
-    if (Array.isArray(recent) && recent.length > 0) {
-      // convert to raw tx-like shapes for summarization
-      const mapped = recent.map((tx: any) => ({ ...tx }));
-      const filtered = mapped.filter((tx) => {
-        // reuse the same matching logic as summarizeTxsForContract uses internally
-        const target = address.toLowerCase();
-        const containsAddress = JSON.stringify(tx).toLowerCase().includes(target);
-        return containsAddress;
-      });
-      console.debug(`[fetchContractTxs] fallback scanned recent ${recent.length} txs found ${filtered.length}`);
-      return filtered;
-    }
-  } catch (err) {
-    console.debug('[fetchContractTxs] fallback scan error:', err);
-  }
+//   // Fallback: if dedicated endpoints failed, fetch a recent batch and filter client-side.
+//   // This is expensive but often works if the server supports /transactions?limit=N.
+//   try {
+//     console.debug('[fetchContractTxs] falling back to scanning recent transactions endpoint');
+//     // try a larger limit but be careful with performance / timeouts
+//     const recent = await this.getRecentTransactions(Math.max(200, limit));
+//     if (Array.isArray(recent) && recent.length > 0) {
+//       // convert to raw tx-like shapes for summarization
+//       const mapped = recent.map((tx: any) => ({ ...tx }));
+//       const filtered = mapped.filter((tx) => {
+//         // reuse the same matching logic as summarizeTxsForContract uses internally
+//         const target = address.toLowerCase();
+//         const containsAddress = JSON.stringify(tx).toLowerCase().includes(target);
+//         return containsAddress;
+//       });
+//       console.debug(`[fetchContractTxs] fallback scanned recent ${recent.length} txs found ${filtered.length}`);
+//       return filtered;
+//     }
+//   } catch (err) {
+//     console.debug('[fetchContractTxs] fallback scan error:', err);
+//   }
 
-  // Nothing found
-  console.debug('[fetchContractTxs] no txs discovered for', address);
-  return null;
-}
+//   // Nothing found
+//   console.debug('[fetchContractTxs] no txs discovered for', address);
+//   return null;
+// }
 
-private static summarizeTxsForContract(txs: any[], address: string) {
-  const targetLow = address.toLowerCase();
-  let interactionCount = 0;
-  const callers = new Set<string>();
-  let lastInteraction: string | null = null;
-  let totalValueTransferred = 0;
+// private static summarizeTxsForContract(txs: any[], address: string) {
+//   const targetLow = address.toLowerCase();
+//   let interactionCount = 0;
+//   const callers = new Set<string>();
+//   let lastInteraction: string | null = null;
+//   let totalValueTransferred = 0;
 
-  for (const tx of txs) {
-    // Try to find whether tx touches the contract - multiple shapes
-    const txStr = JSON.stringify(tx).toLowerCase();
-    const touched = (() => {
-      if (!tx) return false;
-      // EVM-style: to field
-      if (tx.to && String(tx.to).toLowerCase() === targetLow) return true;
-      // explicit recipient
-      if (tx.to_address && String(tx.to_address).toLowerCase() === targetLow) return true;
-      // tx object may include an addresses array
-      if (Array.isArray(tx.addresses) && tx.addresses.map((a: string) => String(a).toLowerCase()).includes(targetLow)) return true;
-      // logs/events might contain the address
-      if (tx.logs && tx.logs.length && txStr.includes(targetLow)) return true;
-      // cosmos messages: msgs / messages array
-      if (Array.isArray(tx.msgs) || Array.isArray(tx.messages)) {
-        const msgs = tx.msgs ?? tx.messages;
-        for (const m of msgs) {
-          if (!m) continue;
-          // common fields: contract / contract_address / recipient / to
-          if (m.contract === address || m.contract_address === address || (m.value && (m.value.contract === address || m.value.contract_address === address))) return true;
-          // typeUrl may indicate execution on this contract
-          if (m.typeUrl && (String(m.typeUrl).toLowerCase().includes('wasm') || String(m.typeUrl).toLowerCase().includes('execute'))) {
-            if (txStr.includes(targetLow)) return true;
-          }
-        }
-      }
-      // fallback: if any stringified tx includes the address
-      if (txStr.includes(targetLow)) return true;
-      return false;
-    })();
+//   for (const tx of txs) {
+//     // Try to find whether tx touches the contract - multiple shapes
+//     const txStr = JSON.stringify(tx).toLowerCase();
+//     const touched = (() => {
+//       if (!tx) return false;
+//       // EVM-style: to field
+//       if (tx.to && String(tx.to).toLowerCase() === targetLow) return true;
+//       // explicit recipient
+//       if (tx.to_address && String(tx.to_address).toLowerCase() === targetLow) return true;
+//       // tx object may include an addresses array
+//       if (Array.isArray(tx.addresses) && tx.addresses.map((a: string) => String(a).toLowerCase()).includes(targetLow)) return true;
+//       // logs/events might contain the address
+//       if (tx.logs && tx.logs.length && txStr.includes(targetLow)) return true;
+//       // cosmos messages: msgs / messages array
+//       if (Array.isArray(tx.msgs) || Array.isArray(tx.messages)) {
+//         const msgs = tx.msgs ?? tx.messages;
+//         for (const m of msgs) {
+//           if (!m) continue;
+//           // common fields: contract / contract_address / recipient / to
+//           if (m.contract === address || m.contract_address === address || (m.value && (m.value.contract === address || m.value.contract_address === address))) return true;
+//           // typeUrl may indicate execution on this contract
+//           if (m.typeUrl && (String(m.typeUrl).toLowerCase().includes('wasm') || String(m.typeUrl).toLowerCase().includes('execute'))) {
+//             if (txStr.includes(targetLow)) return true;
+//           }
+//         }
+//       }
+//       // fallback: if any stringified tx includes the address
+//       if (txStr.includes(targetLow)) return true;
+//       return false;
+//     })();
 
-    if (!touched) continue;
+//     if (!touched) continue;
 
-    interactionCount += 1;
+//     interactionCount += 1;
 
-    // caller detection: try many names
-    const caller = tx.from || tx.sender || tx.signer || tx.signers?.[0] || tx.tx?.signer || null;
-    if (caller) callers.add(String(caller));
+//     // caller detection: try many names
+//     const caller = tx.from || tx.sender || tx.signer || tx.signers?.[0] || tx.tx?.signer || null;
+//     if (caller) callers.add(String(caller));
 
-    // value detection: many shapes — try numeric fields and nested message amounts
-    const candidates = [
-      tx.value,
-      tx.value_transferred,
-      tx.amount,
-      tx.fee,
-      tx.msgs?.[0]?.value?.amount?.[0]?.amount,
-      tx.msgs?.[0]?.value?.amount,
-      tx.tx?.value
-    ];
-    for (const v of candidates) {
-      const n = Number(v ?? 0);
-      if (!Number.isNaN(n) && n > 0) {
-        totalValueTransferred += n;
-        break;
-      }
-    }
+//     // value detection: many shapes — try numeric fields and nested message amounts
+//     const candidates = [
+//       tx.value,
+//       tx.value_transferred,
+//       tx.amount,
+//       tx.fee,
+//       tx.msgs?.[0]?.value?.amount?.[0]?.amount,
+//       tx.msgs?.[0]?.value?.amount,
+//       tx.tx?.value
+//     ];
+//     for (const v of candidates) {
+//       const n = Number(v ?? 0);
+//       if (!Number.isNaN(n) && n > 0) {
+//         totalValueTransferred += n;
+//         break;
+//       }
+//     }
 
-    // timestamp extraction
-    const timestamp = tx.timestamp || tx.time || tx.block_time || tx.block?.time || tx.tx?.time;
-    if (timestamp) {
-      const t = new Date(timestamp).getTime();
-      if (!Number.isNaN(t) && (!lastInteraction || t > new Date(lastInteraction).getTime())) {
-        lastInteraction = new Date(t).toISOString();
-      }
-    }
-  }
+//     // timestamp extraction
+//     const timestamp = tx.timestamp || tx.time || tx.block_time || tx.block?.time || tx.tx?.time;
+//     if (timestamp) {
+//       const t = new Date(timestamp).getTime();
+//       if (!Number.isNaN(t) && (!lastInteraction || t > new Date(lastInteraction).getTime())) {
+//         lastInteraction = new Date(t).toISOString();
+//       }
+//     }
+//   }
 
-  return {
-    interactionCount,
-    uniqueCallers: callers.size,
-    lastInteraction,
-    totalValueTransferred
-  };
-}
+//   return {
+//     interactionCount,
+//     uniqueCallers: callers.size,
+//     lastInteraction,
+//     totalValueTransferred
+//   };
+// }
 
-private static async enhanceWithOnchainData(type: ContractType, address: string) {
-  // 1) Contract metadata (verification, creator)
-  const contract = await this.getContract(type, address).catch((e) => {
-    console.debug('[enhanceWithOnchainData] getContract failed:', e);
-    return null;
-  });
+// private static async enhanceWithOnchainData(type: ContractType, address: string) {
+//   // 1) Contract metadata (verification, creator)
+//   const contract = await this.getContract(type, address).catch((e) => {
+//     console.debug('[enhanceWithOnchainData] getContract failed:', e);
+//     return null;
+//   });
 
-  // 2) Try to find contract transactions (robust)
-  const txs = await this.fetchContractTxs(type, address, 500).catch((e) => {
-    console.debug('[enhanceWithOnchainData] fetchContractTxs error:', e);
-    return null;
-  });
+//   // 2) Try to find contract transactions (robust)
+//   const txs = await this.fetchContractTxs(type, address, 500).catch((e) => {
+//     console.debug('[enhanceWithOnchainData] fetchContractTxs error:', e);
+//     return null;
+//   });
 
-  // 3) EVM code if available
-  let code: any = null;
-  if (type === 'evm') {
-    const codeRes = await this.tryFetchJson(`${SEISTREAM_API}/contracts/evm/${address}/code`);
-    if (codeRes.ok && codeRes.body) {
-      code = codeRes.body.code || codeRes.body.bytecode || codeRes.body.data || codeRes.body;
-      console.debug('[enhanceWithOnchainData] got code length=', code ? (String(code).length) : 0);
-    } else {
-      console.debug('[enhanceWithOnchainData] no code endpoint or empty for', address);
-    }
-  }
+//   // 3) EVM code if available
+//   let code: any = null;
+//   if (type === 'evm') {
+//     const codeRes = await this.tryFetchJson(`${SEISTREAM_API}/contracts/evm/${address}/code`);
+//     if (codeRes.ok && codeRes.body) {
+//       code = codeRes.body.code || codeRes.body.bytecode || codeRes.body.data || codeRes.body;
+//       console.debug('[enhanceWithOnchainData] got code length=', code ? (String(code).length) : 0);
+//     } else {
+//       console.debug('[enhanceWithOnchainData] no code endpoint or empty for', address);
+//     }
+//   }
 
-  const txSummary = txs ? this.summarizeTxsForContract(txs, address) : { interactionCount: 0, uniqueCallers: 0, lastInteraction: null, totalValueTransferred: 0 };
+//   const txSummary = txs ? this.summarizeTxsForContract(txs, address) : { interactionCount: 0, uniqueCallers: 0, lastInteraction: null, totalValueTransferred: 0 };
 
-  // Compute risk using real evidence
-  const verified = Boolean(contract?.verified);
-  let score = 0;
-  const reasons: string[] = [];
+//   // Compute risk using real evidence
+//   const verified = Boolean(contract?.verified);
+//   let score = 0;
+//   const reasons: string[] = [];
 
-  if (!verified) {
-    score += 3;
-    reasons.push('Contract not verified or verification info missing.');
-  } else {
-    reasons.push('Contract is verified on explorer.');
-  }
+//   if (!verified) {
+//     score += 3;
+//     reasons.push('Contract not verified or verification info missing.');
+//   } else {
+//     reasons.push('Contract is verified on explorer.');
+//   }
 
-  if (txSummary.interactionCount >= 500) { score += 3; reasons.push(`Very high interactions: ${txSummary.interactionCount}`); }
-  else if (txSummary.interactionCount >= 50) { score += 2; reasons.push(`Moderate interactions: ${txSummary.interactionCount}`); }
-  else if (txSummary.interactionCount > 0) { score += 1; reasons.push(`Low interactions: ${txSummary.interactionCount}`); }
-  else { reasons.push('No on-chain interactions found.'); }
+//   if (txSummary.interactionCount >= 500) { score += 3; reasons.push(`Very high interactions: ${txSummary.interactionCount}`); }
+//   else if (txSummary.interactionCount >= 50) { score += 2; reasons.push(`Moderate interactions: ${txSummary.interactionCount}`); }
+//   else if (txSummary.interactionCount > 0) { score += 1; reasons.push(`Low interactions: ${txSummary.interactionCount}`); }
+//   else { reasons.push('No on-chain interactions found.'); }
 
-  if (txSummary.uniqueCallers > 0) reasons.push(`Unique callers: ${txSummary.uniqueCallers}.`);
+//   if (txSummary.uniqueCallers > 0) reasons.push(`Unique callers: ${txSummary.uniqueCallers}.`);
 
-  if ((txSummary.totalValueTransferred || 0) > 0) {
-    reasons.push(`Total transferred (approx): ${txSummary.totalValueTransferred.toLocaleString()}.`);
-    if (txSummary.totalValueTransferred > 1e9) score += 2;
-  }
+//   if ((txSummary.totalValueTransferred || 0) > 0) {
+//     reasons.push(`Total transferred (approx): ${txSummary.totalValueTransferred.toLocaleString()}.`);
+//     if (txSummary.totalValueTransferred > 1e9) score += 2;
+//   }
 
-  if (code && typeof code === 'string') {
-    const codeLen = code.length;
-    if (codeLen < 120 && !verified) { score += 1; reasons.push('Small bytecode and unverified.'); }
-    if (codeLen > 30000) { reasons.push('Large bytecode length; complex logic present.'); }
-  }
+//   if (code && typeof code === 'string') {
+//     const codeLen = code.length;
+//     if (codeLen < 120 && !verified) { score += 1; reasons.push('Small bytecode and unverified.'); }
+//     if (codeLen > 30000) { reasons.push('Large bytecode length; complex logic present.'); }
+//   }
 
-  let riskLevel: 'low'|'medium'|'high' = 'low';
-  if (score >= 6) riskLevel = 'high';
-  else if (score >= 3) riskLevel = 'medium';
+//   let riskLevel: 'low'|'medium'|'high' = 'low';
+//   if (score >= 6) riskLevel = 'high';
+//   else if (score >= 3) riskLevel = 'medium';
 
-  const details = {
-    source: txs ? 'onchain' : 'none',
-    verified,
-    creator: contract?.creator || contract?.deployer || null,
-    creationTx: contract?.creationTx ?? contract?.created_tx ?? null,
-    interactionCount: txSummary.interactionCount,
-    uniqueCallers: txSummary.uniqueCallers,
-    lastInteraction: txSummary.lastInteraction,
-    totalValueTransferred: txSummary.totalValueTransferred,
-    codeSampleLength: code ? String(code).length : null,
-    rawContract: contract ?? null,
-    rawTxsSample: Array.isArray(txs) ? txs.slice(0, 5) : []
-  };
+//   const details = {
+//     source: txs ? 'onchain' : 'none',
+//     verified,
+//     creator: contract?.creator || contract?.deployer || null,
+//     creationTx: contract?.creationTx ?? contract?.created_tx ?? null,
+//     interactionCount: txSummary.interactionCount,
+//     uniqueCallers: txSummary.uniqueCallers,
+//     lastInteraction: txSummary.lastInteraction,
+//     totalValueTransferred: txSummary.totalValueTransferred,
+//     codeSampleLength: code ? String(code).length : null,
+//     rawContract: contract ?? null,
+//     rawTxsSample: Array.isArray(txs) ? txs.slice(0, 5) : []
+//   };
 
-  const aiSummary = [
-    `On-chain analysis for ${address}:`,
-    ...reasons,
-    `Computed risk score: ${score} — risk level: ${riskLevel.toUpperCase()}.`,
-    details.lastInteraction ? `Last interaction: ${details.lastInteraction}.` : 'No recent interactions found.'
-  ].join(' ');
+//   const aiSummary = [
+//     `On-chain analysis for ${address}:`,
+//     ...reasons,
+//     `Computed risk score: ${score} — risk level: ${riskLevel.toUpperCase()}.`,
+//     details.lastInteraction ? `Last interaction: ${details.lastInteraction}.` : 'No recent interactions found.'
+//   ].join(' ');
 
-  return { success: true, aiSummary, riskLevel, message: 'On-chain data analysis used.', details };
-}
+//   return { success: true, aiSummary, riskLevel, message: 'On-chain data analysis used.', details };
+// }
 // Inside src/services/blockchainService.ts
 
 // ... existing imports and interfaces ...
@@ -852,58 +851,42 @@ private static async enhanceWithOnchainData(type: ContractType, address: string)
   }
 
   /** (Optional) Get EVM address for a Sei bech32 address */
- // Optional: existing Sei -> EVM mapper
-static async getSeiEVMAddress(seiAddress: string): Promise<string | null> {
-  try {
-    // If you already have a working endpoint, keep it. Otherwise remove.
-    const res = await fetch(`${SEISTREAM_API}/accounts/${seiAddress}/evm`);
-    if (!res.ok) return null;
-    const d = await res.json();
-    return d.evm_address ?? d.eth_address ?? d.address ?? null;
-  } catch {
-    return null;
-  }
-}
-
-// NEW: resolve Sei bech32 from an EVM 0x address
-static async getSeiFromEvmAddress(evmAddress: string): Promise<string | null> {
-  if (!isEvmAddress(evmAddress)) return null;
-  try {
-    // 1) Use a generic search (many explorers resolve this)
-    if (this.search) {
-      const s = await this.search(evmAddress);
-      const addr =
-        s?.account?.address ??
-        s?.address ??
-        s?.result?.address ??
-        s?.sei_address ??
-        null;
-      if (addr && /^sei1[0-9a-z]{20,80}$/i.test(addr)) return addr;
+  static async getSeiEVMAddress(seiAddress: string): Promise<string | null> {
+    try {
+      // This is a common endpoint on explorers for address mapping
+      const res = await fetch(`${SEISTREAM_API}/address/${seiAddress}/evm`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      // Adjust property name based on your backend's response (e.g., data.evm_address, data.eth_address)
+      return data.evm_address || data.eth_address || data.address || null;
+    } catch (err) {
+      console.error(`getSeiEVMAddress(${seiAddress}) error:`, err);
+      return null;
     }
+  }
 
-    // 2) Try a couple of common patterns (keep or remove as your API supports)
-    const candidates = [
-      `${SEISTREAM_API}/accounts/evm/${evmAddress}`,
-      `${SEISTREAM_API}/evm/${evmAddress}`,
-      `${SEISTREAM_API}/evm/${evmAddress}/sei`,
-    ];
-    for (const url of candidates) {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) continue;
-        const d = await res.json();
-        const addr = d?.address ?? d?.sei_address ?? d?.result?.address;
-        if (addr && /^sei1[0-9a-z]{20,80}$/i.test(addr)) return addr;
-      } catch {
-        // continue
+  /** (Optional) Get Sei address for an EVM address */
+  static async getSeiFromEvmAddress(evmAddress: string): Promise<string | null> {
+    try {
+      // Try to search for the EVM address, which might return associated Sei address
+      const searchResult = await this.search(evmAddress);
+      if (searchResult && searchResult.address && !evmAddress.startsWith('0x')) {
+        return searchResult.address;
       }
+      
+      // If no direct mapping, try to find through contract search
+      const contracts = await this.getContracts('evm', 1);
+      const contractResult = contracts.find(c => c.address === evmAddress);
+      if (contractResult && contractResult.address) {
+        return contractResult.address;
+      }
+      
+      return null;
+    } catch (err) {
+      console.error(`getSeiFromEvmAddress(${evmAddress}) error:`, err);
+      return null;
     }
-    return null;
-  } catch (err) {
-    console.error('getSeiFromEvmAddress error', err);
-    return null;
   }
-}
 
 
   static async getAccountDetails(address: string): Promise<SeiAccount | null> {

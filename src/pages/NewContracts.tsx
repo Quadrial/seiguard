@@ -290,8 +290,6 @@
 // NewContracts.tsx
 import React, { useEffect, useState } from 'react';
 import {
-  FaCode,
-  FaBrain,
   FaCheckCircle,
   FaExclamationTriangle,
   FaSyncAlt,

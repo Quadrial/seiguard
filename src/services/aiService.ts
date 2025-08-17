@@ -115,7 +115,7 @@ Please provide a concise analysis of the wallet activity, potential risks, and a
         return {
           summary: 'Transaction details unavailable for full analysis.',
           riskLevel: 'medium',
-          details: { txHash: typeof hashOrTx === 'string' ? hashOrTx : tx?.hash }
+          details: { txHash: typeof hashOrTx === 'string' ? hashOrTx : '' }
         };
       }
 
@@ -129,7 +129,7 @@ Please provide a concise analysis of the wallet activity, potential risks, and a
       }
 
       // incorporate gas usage into score
-      const gasUsed = Number(tx.gasUsed ?? tx.gas_used ?? 0);
+      const gasUsed = Number(tx.gasUsed ?? 0);
       if (!Number.isNaN(gasUsed) && gasUsed > 1_000_000) score += 2;
 
       let riskLevel: RiskLevel = 'low';

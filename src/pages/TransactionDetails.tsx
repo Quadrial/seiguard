@@ -69,7 +69,6 @@ const TransactionDetails: React.FC = () => {
 
   const [tx, setTx] = useState<SeiTransaction | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState<string | null>(null);
   const [latestHeight, setLatestHeight] = useState<number | null>(null);
   const [price, setPrice] = useState<Price>(null);
 
@@ -113,11 +112,11 @@ const TransactionDetails: React.FC = () => {
     return c >= 0 ? c : 0;
   }, [tx?.height, latestHeight]);
 
-  const copy = async (text: string, tag: string) => {
+  const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(tag);
-      setTimeout(() => setCopied(null), 1200);
+      // setCopied(tag);
+      // setTimeout(() => setCopied(null), 1200);
     } catch {}
   };
 
@@ -210,7 +209,7 @@ const TransactionDetails: React.FC = () => {
                 >
                   {short(tx.from)}
                 </button>
-                <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.from!, 'from')}>
+                <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.from!)}>
                   <FaCopy />
                 </button>
               </>
@@ -229,7 +228,7 @@ const TransactionDetails: React.FC = () => {
                 >
                   {short(tx.to)}
                 </button>
-                <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.to!, 'to')}>
+                <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.to!)}>
                   <FaCopy />
                 </button>
               </>
@@ -247,7 +246,7 @@ const TransactionDetails: React.FC = () => {
               >
                 {short(tx.hash)}
               </a>
-              <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.hash, 'hash')}>
+              <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.hash)}>
                 <FaCopy />
               </button>
             </>

@@ -1,17 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { BlockchainService } from '../services/blockchainService';
+import type { SeiWallet } from '../services/blockchainService';
 import { FaEthereum, FaCoins, FaExchangeAlt, FaClock } from 'react-icons/fa';
 
 const AccountDetails = () => {
-  const { address } = useParams();
-  const [accountDetails, setAccountDetails] = useState(null);
+  const { address } = useParams<{ address: string }>();
+  const [accountDetails, setAccountDetails] = useState<SeiWallet | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAccountDetails = async () => {
       try {
+        if (!address) {
+          setError('Address is required');
+          setLoading(false);
+          return;
+        }
         const details = await BlockchainService.getWalletInfo(address);
         setAccountDetails(details);
       } catch (err) {

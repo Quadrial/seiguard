@@ -1,22 +1,18 @@
 import React, { useState } from 'react';
 import {
   FaBrain,
-  FaShieldAlt,
-  FaExclamationTriangle,
   FaCoins
 } from 'react-icons/fa';
 import { BlockchainService } from '../services/blockchainService';
 import type { SeiWallet } from '../services/blockchainService';
 import { AIService } from '../services/aiService';
 import type { WalletAnalysis } from '../services/aiService';
-import { SuspiciousActivityService } from '../services/suspiciousActivityService';
-import type { SuspiciousActivity } from '../services/suspiciousActivityService';
+// import { SuspiciousActivityService } from '../services/suspiciousActivityService';
 
 const WalletView: React.FC = () => {
   const [address, setAddress] = useState('');
   const [wallet, setWallet] = useState<SeiWallet | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<WalletAnalysis | null>(null);
-  const [suspiciousActivities, setSuspiciousActivities] = useState<SuspiciousActivity[]>([]);
   const [loading, setLoading] = useState(false);
 
   const loadWalletData = async (walletAddress: string) => {
@@ -32,13 +28,6 @@ const WalletView: React.FC = () => {
           walletInfo.balance
         );
         setAiAnalysis(analysis);
-
-        const suspicious = await SuspiciousActivityService.analyzeWallet({
-          ...walletInfo,
-          transactionCount: 0,
-          timeWindow: 3600
-        });
-        setSuspiciousActivities(suspicious);
       }
     } catch (error) {
       console.error('Failed to load wallet data:', error);
@@ -135,29 +124,6 @@ const WalletView: React.FC = () => {
                       <span className="font-semibold">{aiAnalysis.riskScore}%</span>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Suspicious Activity */}
-            {suspiciousActivities.length > 0 && (
-              <div className="bg-[#111827] p-6 rounded-xl shadow-md">
-                <div className="flex items-center gap-3 mb-4">
-                  <FaExclamationTriangle className="text-2xl text-red-400" />
-                  <h3 className="text-xl font-semibold">Suspicious Activity</h3>
-                </div>
-                <div className="space-y-3">
-                  {suspiciousActivities.map((activity, index) => (
-                    <div key={index} className="border-l-4 border-red-500 pl-4">
-                      <div className="flex items-center gap-2 mb-1">
-                        <FaShieldAlt className="text-red-400" />
-                        <span className="font-semibold">{activity.description}</span>
-                      </div>
-                      <p className="text-sm text-gray-400">
-                        Confidence: {(activity.confidence * 100).toFixed(0)}%
-                      </p>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}

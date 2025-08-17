@@ -353,7 +353,6 @@ const MAX_PER_CYCLE = 10; // max new txs to analyze per cycle
 const Suspicious: React.FC = () => {
   const [txHash, setTxHash] = useState('');
   const [analysis, setAnalysis] = useState<TransactionAnalysis | null>(null);
-  const [suspiciousActivities, setSuspiciousActivities] = useState<SuspiciousActivity[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [scanningEnabled, setScanningEnabled] = useState(true);
@@ -422,13 +421,13 @@ const Suspicious: React.FC = () => {
       // Filter only unseen txs in chronological order (newest first from API -> reverse)
       const unseen = txs
         .filter((tx) => {
-          const h = tx.hash ?? tx.tx_hash ?? tx.txHash ?? '';
+          const h = tx.hash ?? '';
           return h && !seenTxsRef.current.has(h);
         })
         .slice(0, MAX_PER_CYCLE);
 
       for (const tx of unseen) {
-        const txHashLocal = tx.hash ?? tx.tx_hash ?? tx.txHash ?? '';
+        const txHashLocal = tx.hash ?? '';
         // mark as seen immediately to avoid duplicate analysis across cycles
         if (txHashLocal) seenTxsRef.current.add(txHashLocal);
 
@@ -471,9 +470,9 @@ const Suspicious: React.FC = () => {
       const aiResult = await AIService.analyzeTransaction(targetHash);
       setAnalysis(aiResult);
 
-      const txObj = (await BlockchainService.getTransaction(targetHash)) ?? null;
-      const suspicious = txObj ? await SuspiciousActivityService.analyzeTransaction(txObj) : [];
-      setSuspiciousActivities(suspicious);
+      // const txObj = (await BlockchainService.getTransaction(targetHash)) ?? null;
+      // const suspicious = txObj ? await SuspiciousActivityService.analyzeTransaction(txObj) : [];
+      // setSuspiciousActivities(suspicious);
     } catch (err) {
       console.error('Analysis failed:', err);
       setError('Analysis failed. See console for details.');

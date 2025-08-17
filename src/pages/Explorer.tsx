@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FaPercentage,
@@ -8,15 +8,14 @@ import {
   FaExchangeAlt,
   FaChartLine,
   FaMoneyBill,
-  FaSearch,
-  FaBrain
+  FaSearch
 } from 'react-icons/fa';
 
 import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { BlockchainService } from '../services/blockchainService';
 import type { SeiBlock, SeiTransaction } from '../services/blockchainService';
-import { AIService } from '../services/aiService';
-import type { WalletAnalysis } from '../services/aiService';
+// import { AIService } from '../services/aiService';
+// import type { WalletAnalysis } from '../services/aiService';
 
 // ----------------- Helpers for smart search -----------------
 type SuggestType = 'tx' | 'address' | 'contract' | 'block';
@@ -67,7 +66,6 @@ const Explorer = () => {
 
   const [recentBlocks, setRecentBlocks] = useState<SeiBlock[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<SeiTransaction[]>([]);
-  const [aiAnalysis, setAiAnalysis] = useState<WalletAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [seiPriceData, setSeiPriceData] = useState<{ price: number | null; change: number | null }>({ price: null, change: null });
@@ -357,37 +355,6 @@ const Explorer = () => {
           <Card title="Validators" value="40" icon={<FaServer className="text-2xl" />} />
           <Card title="Transactions" value="712 124 051" icon={<FaExchangeAlt className="text-2xl" />} />
         </div>
-
-        {/* AI Analysis Section */}
-        {aiAnalysis && (
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-6">
-            <div className="flex items-center gap-2 mb-4">
-              <FaBrain className="text-cyan-400 text-xl" />
-              <h3 className="text-lg font-semibold">AI Analysis</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-sm text-gray-400 mb-2">Wallet Summary</h4>
-                <p className="text-sm">{aiAnalysis.summary}</p>
-              </div>
-              <div>
-                <h4 className="text-sm text-gray-400 mb-2">Risk Score</h4>
-                <div className="flex items-center gap-2">
-                  <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        aiAnalysis.riskScore < 30 ? 'bg-green-500' :
-                        aiAnalysis.riskScore < 70 ? 'bg-yellow-500' : 'bg-red-500'
-                      }`}
-                      style={{ width: `${aiAnalysis.riskScore}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-sm font-semibold">{aiAnalysis.riskScore}%</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="bg-[#111827] p-6 rounded-xl shadow-md">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
