@@ -1,65 +1,159 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  FaArrowLeft, 
-  FaCheckCircle, 
-  FaCopy, 
-  FaExternalLinkAlt,
-  FaServer,
-  FaCoins,
-  FaGasPump
+import {
+  FaArrowLeft,
+  FaCopy
 } from 'react-icons/fa';
 import { BlockchainService } from '../services/blockchainService';
 import type { SeiTransaction } from '../services/blockchainService';
 
+type Price = { usd: number; usd_24h_change: number } | null;
+
+const short = (s?: string, left = 10, right = 10) => {
+  if (!s) return '';
+  return s.length <= left + right + 3 ? s : `${s.slice(0, left)}…${s.slice(-right)}`;
+};
+
+const normalizeHash = (h: string) => {
+  if (!h) return h;
+  if (/^0x[0-9a-fA-F]{64}$/.test(h)) return h;
+  if (/^[0-9a-fA-F]{64}$/.test(h)) return h;
+  const bare = h.startsWith('0x') ? h.slice(2) : h;
+  return /^[0-9a-fA-F]{64}$/.test(bare) ? (h.startsWith('0x') ? h : `0x${bare}`) : h;
+};
+
+const timeAgo = (ts?: string) => {
+  if (!ts) return 'Unknown';
+  const d = new Date(ts).getTime();
+  if (Number.isNaN(d)) return 'Unknown';
+  const sec = Math.floor((Date.now() - d) / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+  return `${Math.floor(sec / 86400)}d ago`;
+};
+
+const isBech32 = (addr?: string) => !!addr && /^sei1[0-9a-z]{20,80}$/i.test(addr);
+const isEvm = (addr?: string) => !!addr && /^0x[0-9a-fA-F]{40}$/.test(addr);
+
+const gradientFor = (seed: string) => {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h + seed.charCodeAt(i) * 17) % 360;
+  const h2 = (h + 60) % 360;
+  return `linear-gradient(135deg, hsl(${h} 70% 50%), hsl(${h2} 70% 50%))`;
+};
+
+const TinyAvatar = ({ seed }: { seed: string }) => (
+  <span
+    className="inline-block w-4 h-4 rounded"
+    style={{ background: gradientFor(seed) }}
+  />
+);
+
+const LabeledRow = ({
+  label,
+  children
+}: {
+  label: string;
+  children: React.ReactNode;
+}) => (
+  <div className="flex items-center justify-between py-3 border-b border-gray-700">
+    <span className="text-gray-400">{label}</span>
+    <div className="flex items-center gap-2">{children}</div>
+  </div>
+);
+
 const TransactionDetails: React.FC = () => {
   const { hash } = useParams<{ hash: string }>();
   const navigate = useNavigate();
-  const [transaction, setTransaction] = useState<SeiTransaction | null>(null);
+
+  const [tx, setTx] = useState<SeiTransaction | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'details' | 'logs' | 'state'>('details');
   const [copied, setCopied] = useState<string | null>(null);
+  const [latestHeight, setLatestHeight] = useState<number | null>(null);
+  const [price, setPrice] = useState<Price>(null);
 
-  const copyToClipboard = async (text: string, type: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(type);
-      setTimeout(() => setCopied(null), 2000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
-    }
-  };
-
+  // Load tx + latest block + price
   useEffect(() => {
-    const loadTransaction = async () => {
+    const load = async () => {
       if (!hash) return;
-      
       setLoading(true);
       try {
-        const txData = await BlockchainService.getTransaction(hash);
-        setTransaction(txData);
-      } catch (error) {
-        console.error('Failed to load transaction:', error);
+        // normalize hash and try both 0x + bare
+        const n = normalizeHash(hash);
+        const candidates = /^0x/.test(n) ? [n, n.slice(2)] : [n, `0x${n}`];
+
+        let found: SeiTransaction | null = null;
+        for (const h of candidates) {
+          const t = await BlockchainService.getTransaction(h);
+          if (t && t.hash) { found = t; break; }
+        }
+        setTx(found);
+
+        const latest = await BlockchainService.getLatestBlock();
+        if (latest?.height) setLatestHeight(Number(latest.height));
+
+        const p = await BlockchainService.getSeiPrice?.();
+        if (p && typeof p.usd === 'number') {
+          setPrice({ usd: p.usd, usd_24h_change: p.usd_24h_change });
+        }
+      } catch (e) {
+        console.error('load tx error', e);
+        setTx(null);
       } finally {
         setLoading(false);
       }
     };
-
-    loadTransaction();
+    load();
   }, [hash]);
+
+  const confirmations = useMemo(() => {
+    if (!tx?.height || !latestHeight) return null;
+    const c = Number(latestHeight) - Number(tx.height);
+    return c >= 0 ? c : 0;
+  }, [tx?.height, latestHeight]);
+
+  const copy = async (text: string, tag: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(tag);
+      setTimeout(() => setCopied(null), 1200);
+    } catch {}
+  };
+
+  const feeUsei = useMemo(() => {
+    const n = Number(tx?.fee ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  }, [tx?.fee]);
+
+  const feeSei = feeUsei / 1e6;
+  const feeUsd = price?.usd ? feeSei * price.usd : null;
+
+  const typeBadge = useMemo(() => {
+    // best-effort classification
+    if (tx?.type) {
+      if (tx.type.toLowerCase().includes('evm')) return 'EVMTransaction';
+      if (tx.type.toLowerCase().includes('wasm') || tx.type.toLowerCase().includes('cosmos')) return 'CosmosTransaction';
+      return tx.type;
+    }
+    // infer from addresses
+    if (isEvm(tx?.from) || isEvm(tx?.to)) return 'EVMTransaction';
+    if (isBech32(tx?.from) || isBech32(tx?.to)) return 'CosmosTransaction';
+    return 'Transaction';
+  }, [tx]);
 
   if (loading) {
     return (
       <div className="mt-10 px-10 text-white font-sans">
         <div className="max-w-4xl mx-auto text-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading transaction details...</p>
+          <p className="text-gray-400">Loading transaction...</p>
         </div>
       </div>
     );
   }
 
-  if (!transaction) {
+  if (!tx) {
     return (
       <div className="mt-10 px-10 text-white font-sans">
         <div className="max-w-4xl mx-auto text-center py-20">
@@ -77,8 +171,8 @@ const TransactionDetails: React.FC = () => {
 
   return (
     <div className="mt-10 px-10 text-white font-sans">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
+      <div className="max-w-5xl mx-auto">
+        {/* Back */}
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => navigate('/explorer')}
@@ -89,241 +183,112 @@ const TransactionDetails: React.FC = () => {
           </button>
         </div>
 
-        {/* Transaction Header */}
-        <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold">Transaction details</h1>
+        {/* Card */}
+        <div className="bg-[#111827] p-6 rounded-xl shadow-md">
+          {/* Header line with badge + time */}
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full text-xs bg-blue-900 text-blue-200 border border-blue-700">
+                {typeBadge}
+              </span>
+            </div>
             <div className="text-sm text-gray-400">
-              {transaction && new Date(transaction.timestamp).toLocaleString()}
+              {tx.timestamp ? `${new Date(tx.timestamp).toLocaleString()} • ${timeAgo(tx.timestamp)}` : 'Time unknown'}
             </div>
           </div>
-          
-          {/* Transaction Hash and Status */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm">{transaction?.hash}</span>
+
+          {/* Rows like the explorer */}
+          {/* From */}
+          {tx.from && (
+            <LabeledRow label="From">
+              <>
+                <TinyAvatar seed={tx.from} />
                 <button
-                  onClick={() => copyToClipboard(transaction?.hash || '', 'hash')}
-                  className="text-gray-400 hover:text-white"
+                  className="font-mono text-sm text-blue-300 hover:underline"
+                  onClick={() => navigate(`/address/${tx.from}`)}
+                  title={tx.from}
                 >
+                  {short(tx.from)}
+                </button>
+                <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.from!, 'from')}>
                   <FaCopy />
                 </button>
-                {copied === 'hash' && <span className="text-green-400 text-xs">Copied!</span>}
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-1 bg-green-600 text-white rounded text-sm font-semibold flex items-center gap-2">
-                <FaCheckCircle />
-                Success
-              </span>
-              <span className="px-3 py-1 bg-blue-600 text-white rounded text-sm">Execute</span>
-              <span className="px-3 py-1 bg-gray-600 text-white rounded text-sm font-mono">0x25e51ecf</span>
-            </div>
-          </div>
+              </>
+            </LabeledRow>
+          )}
 
-          {/* Navigation Tabs */}
-          <div className="flex border-b border-gray-700">
-            <button
-              onClick={() => setActiveTab('details')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'details' 
-                  ? 'border-blue-500 text-blue-400' 
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              Details
-            </button>
-            <button
-              onClick={() => setActiveTab('logs')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'logs' 
-                  ? 'border-blue-500 text-blue-400' 
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              Logs 2
-            </button>
-            <button
-              onClick={() => setActiveTab('state')}
-              className={`px-6 py-3 font-semibold border-b-2 transition-colors ${
-                activeTab === 'state' 
-                  ? 'border-blue-500 text-blue-400' 
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              State
-            </button>
-          </div>
+          {/* To */}
+          {tx.to && (
+            <LabeledRow label="To">
+              <>
+                <TinyAvatar seed={tx.to} />
+                <button
+                  className="font-mono text-sm text-blue-300 hover:underline"
+                  onClick={() => navigate(`/address/${tx.to}`)}
+                  title={tx.to}
+                >
+                  {short(tx.to)}
+                </button>
+                <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.to!, 'to')}>
+                  <FaCopy />
+                </button>
+              </>
+            </LabeledRow>
+          )}
+
+          {/* Hash */}
+          <LabeledRow label="Hash">
+            <>
+              <a
+                className="font-mono text-sm text-blue-300 hover:underline"
+                href={`/transaction/${tx.hash}`}
+                onClick={(e) => { e.preventDefault(); navigate(`/transaction/${tx.hash}`); }}
+                title={tx.hash}
+              >
+                {short(tx.hash)}
+              </a>
+              <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.hash, 'hash')}>
+                <FaCopy />
+              </button>
+            </>
+          </LabeledRow>
+
+          {/* Block */}
+          <LabeledRow label="Block">
+            <>
+              <button
+                className="hover:underline"
+                onClick={() => tx.height && navigate(`/block/${tx.height}`)}
+              >
+                {tx.height ?? 'Unknown'}
+              </button>
+              <span className="text-gray-400 text-sm">
+                {confirmations !== null ? `${confirmations.toLocaleString()} block confirmations ago` : ''}
+              </span>
+            </>
+          </LabeledRow>
+
+          {/* Fee */}
+          <LabeledRow label="Fee">
+            <>
+              <span>{Number.isFinite(feeSei) ? `${feeSei} SEI` : `${tx.fee ?? '—'} usei`}</span>
+              <span className="text-gray-400">
+                {feeUsd !== null ? `$${feeUsd.toFixed(3)}` : '\$0.000'}
+              </span>
+            </>
+          </LabeledRow>
         </div>
 
-        {/* Content Area */}
-        {activeTab === 'details' && transaction && (
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold">EVM details</h2>
-              <button className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg">
-                <FaExternalLinkAlt />
-                JSON
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {/* Block Information */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <div className="flex items-center gap-2">
-                  <FaServer className="text-blue-400" />
-                  <span className="text-gray-400">Block:</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">{transaction.height}</span>
-                  <span className="text-gray-400 text-sm">308 block confirmations ago</span>
-                </div>
-              </div>
-
-              {/* Block Hash */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">Block Hash:</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm">{transaction.hash}</span>
-                  <button
-                    onClick={() => copyToClipboard(transaction.hash, 'blockHash')}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <FaCopy />
-                  </button>
-                </div>
-              </div>
-
-              {/* Contract Interaction */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">Interacted with contract:</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-gradient-to-r from-purple-400 to-pink-400 rounded"></div>
-                  <span className="font-mono text-sm">0x29FfD44130fCF917950CCA2b29084095dAl0dB95</span>
-                  <button
-                    onClick={() => copyToClipboard('0x29FfD44130fCF917950CCA2b29084095dAl0dB95', 'contract')}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <FaCopy />
-                  </button>
-                </div>
-              </div>
-
-              {/* From Address */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">From:</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-gradient-to-r from-orange-400 to-red-400 rounded"></div>
-                  <span className="font-mono text-sm">0x5B8d2E55e12788108b6e4e2607043737c88c02c9</span>
-                  <button
-                    onClick={() => copyToClipboard('0x5B8d2E55e12788108b6e4e2607043737c88c02c9', 'from')}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <FaCopy />
-                  </button>
-                </div>
-              </div>
-
-              {/* To Address */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">To:</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 bg-gradient-to-r from-green-400 to-blue-400 rounded"></div>
-                  <span className="font-mono text-sm">0x29FfD44130fCF917950CCA2b29084095dAl0dB95</span>
-                  <button
-                    onClick={() => copyToClipboard('0x29FfD44130fCF917950CCA2b29084095dAl0dB95', 'to')}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <FaCopy />
-                  </button>
-                </div>
-              </div>
-
-              {/* Value */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">Value:</span>
-                <div className="flex items-center gap-2">
-                  <FaCoins className="text-yellow-400" />
-                  <span>0 sei</span>
-                  <span className="text-gray-400">$0.000</span>
-                </div>
-              </div>
-
-              {/* Position */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">Position:</span>
-                <span className="font-semibold">2</span>
-              </div>
-
-              {/* Nonce */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">Nonce:</span>
-                <span className="font-semibold">1</span>
-              </div>
-
-              {/* Transaction Fee */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">Transaction fee:</span>
-                <div className="flex items-center gap-2">
-                  <FaCoins className="text-yellow-400" />
-                  <span>0.0005669 sei</span>
-                  <span className="text-gray-400">$0.000</span>
-                </div>
-              </div>
-
-              {/* Gas Price */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">Gas price:</span>
-                <div className="flex items-center gap-2">
-                  <FaGasPump className="text-orange-400" />
-                  <span>0.00000001 sei</span>
-                  <span className="text-gray-400">$0.000</span>
-                </div>
-              </div>
-
-              {/* Transaction Type */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-700">
-                <span className="text-gray-400">Transaction Type:</span>
-                <span className="font-semibold">0</span>
-              </div>
-
-              {/* Gas Usage */}
-              <div className="flex items-center justify-between py-3">
-                <span className="text-gray-400">Gas limit | Used by transaction:</span>
-                <div className="flex items-center gap-4">
-                  <span className="font-semibold">57000 | 56690</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="h-2 rounded-full bg-green-500"
-                        style={{ width: '99.46%' }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-semibold text-green-400">99.46%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'logs' && (
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Transaction Logs</h2>
-            <p className="text-gray-400">Logs will be displayed here...</p>
-          </div>
-        )}
-
-        {activeTab === 'state' && (
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md">
-            <h2 className="text-xl font-semibold mb-4">State Changes</h2>
-            <p className="text-gray-400">State changes will be displayed here...</p>
-          </div>
-        )}
+        {/* Optional raw JSON */}
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm text-gray-400 hover:text-white">Show raw JSON</summary>
+          <pre className="mt-2 p-4 bg-black/40 rounded-lg overflow-auto text-xs">
+            {JSON.stringify(tx, null, 2)}
+          </pre>
+        </details>
       </div>
     </div>
   );
 };
 
-export default TransactionDetails; 
+export default TransactionDetails;

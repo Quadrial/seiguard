@@ -389,34 +389,25 @@ const NewContracts: React.FC = () => {
     }
   };
 
-  const handleAnalyze = async (c: ContractView) => {
-    if (!c.source || !c.address) {
-      setError('Missing contract source or address.');
+  const handleAnalyze = async (contract: { address: string; source?: 'evm' | 'cosmos' }) => {
+    if (!contract.address || !contract.source) {
+      setError('Missing address or source');
       return;
     }
-    setAnalyzing(c.address);
-    setError(null);
+    setAnalyzing(contract.address);
     try {
-      const res = await BlockchainService.analyzeContract(c.source, c.address);
+      const res = await BlockchainService.analyzeContract(contract.source, contract.address);
       if (!res.success) {
-        setError(res.message || 'Analysis failed.');
+        setError(res.message || 'Analysis failed');
       } else {
-        // update contract in list
-        setContracts((prev) =>
-          prev.map((item) =>
-            item.address === c.address && item.source === c.source
-              ? {
-                  ...item,
-                  aiSummary: res.aiSummary || item.aiSummary || 'Analysis completed (no summary returned).',
-                  riskLevel: res.riskLevel || item.riskLevel
-                }
-              : item
-          )
+        // Merge results into state: update aiSummary and riskLevel
+        setContracts(prev =>
+          prev.map(c => c.address === contract.address ? { ...c, aiSummary: res.aiSummary || c.aiSummary, riskLevel: res.riskLevel || c.riskLevel } : c)
         );
       }
-    } catch (err: any) {
-      console.error('analyze error:', err);
-      setError(err?.message || 'Analyze failed unexpectedly.');
+    } catch (err) {
+      console.error('analyzeContract call failed:', err);
+      setError('Analysis request failed');
     } finally {
       setAnalyzing(null);
     }

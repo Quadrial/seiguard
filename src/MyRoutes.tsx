@@ -6,7 +6,8 @@ import Suspicious from './pages/Suspicious'
 import NewContracts from './pages/NewContracts'
 import WalletView from './pages/WalletView'
 import TransactionDetails from './pages/TransactionDetails'
-import AccountDetails from './pages/AccountDetails'
+
+import AddressDetails from './pages/AddressDetails'
 import Chatbot from './pages/Chatbot'
 
 const MyRoutes = () => {
@@ -18,7 +19,8 @@ const MyRoutes = () => {
       <Route path="/contracts" element={<NewContracts/>} />
       <Route path="/wallet" element={<WalletView/>} />
       <Route path="/transaction/:hash" element={<TransactionDetails/>} />
-      <Route path="/account/:address" element={<AccountDetails/>} />
+      
+      <Route path="/address/:address" element={<AddressDetails/>} />
       <Route path="/chatbot" element={<Chatbot/>} />
     </Routes>
   )
