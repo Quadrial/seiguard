@@ -600,11 +600,10 @@ interface ContractView {
   riskLevel?: RiskLevel;
   aiSummary?: string;
   source?: ContractType;
-  raw?: any;
+  raw?: unknown;
 }
 
-const isSei = (s?: string) => !!s && /^sei1[0-9a-z]{20,80}$/i.test(s);
-const isEvm = (s?: string) => !!s && /^0x[0-9a-fA-F]{40}$/.test(s);
+// Removed unused isSei and isEvm helpers
 
 const NewContracts: React.FC = () => {
   const [contracts, setContracts] = useState<ContractView[]>([]);
@@ -651,9 +650,9 @@ const NewContracts: React.FC = () => {
         return tb - ta;
       });
       setContracts(combined);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Load contracts error:', err);
-      setError(err?.message || 'Failed to load contracts');
+      setError(err instanceof Error ? err.message : 'Failed to load contracts');
       setContracts([]);
     } finally {
       setLoading(false);
@@ -693,14 +692,7 @@ const NewContracts: React.FC = () => {
     }
   };
 
-  const fetchInteractionCount = async (addr: string, source?: 'evm' | 'cosmos'): Promise<number> => {
-    try {
-      return await BlockchainService.getInteractionCount(addr, source);
-    } catch (e) {
-      console.error('fetchInteractionCount error', e);
-      return 0;
-    }
-  };
+  // Removed unused fetchInteractionCount helper
 
   const handleAnalyze = async (contract: { address: string; source?: 'evm' | 'cosmos' }) => {
   if (!contract.address || !contract.source) {
@@ -714,17 +706,20 @@ const NewContracts: React.FC = () => {
     setInteractionsMap(prev => ({ ...prev, [contract.address]: count }));
 
     // 2) Local analysis (works for verified and unverified)
-    let res: any = null;
+    let res: unknown = null;
     try {
+
       res = await BlockchainService.analyzeContract(contract.source, contract.address, { preferServer: false });
-    } catch {}
+    } catch {
+      // Optionally log error
+    }
 
     const aiSummary =
-      res?.aiSummary ||
+      (res as { aiSummary?: string })?.aiSummary ||
       `Interactions observed: ${count.toLocaleString()}.${count === 0 ? ' No on-chain activity yet.' : ''}`;
 
     const nextRisk: 'low' | 'medium' | 'high' =
-      res?.riskLevel || (count > 5000 ? 'high' : count > 500 ? 'medium' : 'low');
+      (res as { riskLevel?: 'low' | 'medium' | 'high' })?.riskLevel || (count > 5000 ? 'high' : count > 500 ? 'medium' : 'low');
 
     setContracts(prev =>
       prev.map(c =>
@@ -804,7 +799,7 @@ const NewContracts: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-3 mb-6 items-center">
           <div className="bg-[#111827] p-3 rounded flex items-center gap-3">
             <label className="text-gray-400">Status:</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="bg-transparent">
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | 'verified' | 'unverified')} className="bg-transparent">
               <option value="all">All</option>
               <option value="verified">Verified</option>
               <option value="unverified">Unverified</option>
@@ -813,7 +808,7 @@ const NewContracts: React.FC = () => {
 
           <div className="bg-[#111827] p-3 rounded flex items-center gap-3">
             <label className="text-gray-400">Network:</label>
-            <select value={networkFilter} onChange={(e) => setNetworkFilter(e.target.value as any)} className="bg-transparent">
+            <select value={networkFilter} onChange={(e) => setNetworkFilter(e.target.value as 'all' | 'cosmos' | 'evm')} className="bg-transparent">
               <option value="all">All</option>
               <option value="cosmos">Cosmos</option>
               <option value="evm">EVM</option>

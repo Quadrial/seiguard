@@ -363,7 +363,9 @@ const Explorer = () => {
                   className={`p-4 cursor-pointer hover:bg-gray-800 ${idx === activeIndex ? 'bg-gray-800' : ''}`}
                   onMouseEnter={() => setActiveIndex(idx)}
                   onClick={() => {
-                    if (s.type === 'tx') navigate(`/transaction/${s.id}`);
+                    // Always normalize tx hash to 0x-prefixed for navigation
+                    const txId = s.type === 'tx' && !s.id.startsWith('0x') ? `0x${s.id}` : s.id;
+                    if (s.type === 'tx') navigate(`/transaction/${txId}`);
                     else if (s.type === 'block') navigate(`/block/${s.id}`);
                     else if (s.type === 'contract') navigate(`/contract/${s.id}`);
                     else navigate(`/address/${s.id}`);
@@ -378,7 +380,7 @@ const Explorer = () => {
                       ? 'Contract'
                       : 'Address'}
                   </div>
-                  <div className="text-white">{s.label}</div>
+                  <div className="text-white">{s.type === 'tx' && !s.label.startsWith('0x') ? `0x${s.label}` : s.label}</div>
                   {s.sublabel && (
                     <div className="text-xs text-blue-300 font-mono">
                       {s.sublabel}

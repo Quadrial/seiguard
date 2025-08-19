@@ -1,17 +1,39 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   FaArrowLeft,
-  FaCopy
+  FaCopy,
+  FaExternalLinkAlt,
+  FaCircle, // For the status dot
+  FaCheckCircle, // For success status
+  FaTimesCircle, // For failure status
+  FaSpinner // For loading
 } from 'react-icons/fa';
 import { BlockchainService } from '../services/blockchainService';
 import type { SeiTransaction } from '../services/blockchainService';
+
+// Define the expected structure for EVM transaction details if not already in SeiTransaction
+// You might need to adjust SeiTransaction in blockchainService.ts to include these.
+interface DetailedSeiTransaction extends SeiTransaction {
+  blockHash?: string;
+  gasPrice?: string;
+  gasLimit?: string;
+  gasUsedByTransaction?: string; // This might be `gasUsed` in some APIs
+  nonce?: number;
+  value?: string; // Transaction value
+  txType?: number; // EVM transaction type (0, 1, 2)
+  method?: string; // Decoded method name
+  status?: boolean; // Transaction status (true for success)
+  failureReason?: string; // If status is false
+  position?: number; // Transaction index within the block
+  // ... any other fields from your backend's EVM transaction response
+}
 
 type Price = { usd: number; usd_24h_change: number } | null;
 
 const short = (s?: string, left = 10, right = 10) => {
   if (!s) return '';
-  return s.length <= left + right + 3 ? s : `${s.slice(0, left)}…${s.slice(-right)}`;
+  return s.length <= left + right + 3 ? s : `${s.substring(0, left)}...${s.substring(s.length - right)}`;
 };
 
 const normalizeHash = (h: string) => {
@@ -33,6 +55,22 @@ const timeAgo = (ts?: string) => {
   return `${Math.floor(sec / 86400)}d ago`;
 };
 
+const formatTimestamp = (ts?: string) => {
+  if (!ts) return 'Unknown';
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZoneName: 'shortOffset'
+  };
+  return date.toLocaleString('en-US', options);
+};
+
 const isBech32 = (addr?: string) => !!addr && /^sei1[0-9a-z]{20,80}$/i.test(addr);
 const isEvm = (addr?: string) => !!addr && /^0x[0-9a-fA-F]{40}$/.test(addr);
 
@@ -45,21 +83,25 @@ const gradientFor = (seed: string) => {
 
 const TinyAvatar = ({ seed }: { seed: string }) => (
   <span
-    className="inline-block w-4 h-4 rounded"
+    className="inline-block w-4 h-4 rounded-full" // Changed to rounded-full for circular avatar
     style={{ background: gradientFor(seed) }}
   />
 );
 
 const LabeledRow = ({
   label,
-  children
+  children,
+  className = ''
 }: {
   label: string;
   children: React.ReactNode;
+  className?: string;
 }) => (
-  <div className="flex items-center justify-between py-3 border-b border-gray-700">
-    <span className="text-gray-400">{label}</span>
-    <div className="flex items-center gap-2">{children}</div>
+  <div className={`grid grid-cols-3 md:grid-cols-4 gap-4 py-3 border-b border-gray-700 items-center ${className}`}>
+    <span className="col-span-1 text-gray-400 text-sm font-medium">{label}</span>
+    <div className="col-span-2 md:col-span-3 text-white text-sm break-words flex items-center gap-2">
+      {children}
+    </div>
   </div>
 );
 
@@ -67,10 +109,11 @@ const TransactionDetails: React.FC = () => {
   const { hash } = useParams<{ hash: string }>();
   const navigate = useNavigate();
 
-  const [tx, setTx] = useState<SeiTransaction | null>(null);
+  const [tx, setTx] = useState<DetailedSeiTransaction | null>(null);
   const [loading, setLoading] = useState(true);
   const [latestHeight, setLatestHeight] = useState<number | null>(null);
   const [price, setPrice] = useState<Price>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // Load tx + latest block + price
   useEffect(() => {
@@ -78,13 +121,12 @@ const TransactionDetails: React.FC = () => {
       if (!hash) return;
       setLoading(true);
       try {
-        // normalize hash and try both 0x + bare
         const n = normalizeHash(hash);
         const candidates = /^0x/.test(n) ? [n, n.slice(2)] : [n, `0x${n}`];
 
-        let found: SeiTransaction | null = null;
+        let found: DetailedSeiTransaction | null = null;
         for (const h of candidates) {
-          const t = await BlockchainService.getTransaction(h);
+          const t = await BlockchainService.getTransaction(h) as DetailedSeiTransaction;
           if (t && t.hash) { found = t; break; }
         }
         setTx(found);
@@ -115,8 +157,8 @@ const TransactionDetails: React.FC = () => {
   const copy = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // setCopied(tag);
-      // setTimeout(() => setCopied(null), 1200);
+      setCopiedText(text);
+      setTimeout(() => setCopiedText(null), 1200);
     } catch {}
   };
 
@@ -125,28 +167,32 @@ const TransactionDetails: React.FC = () => {
     return Number.isFinite(n) ? n : 0;
   }, [tx?.fee]);
 
-  const feeSei = feeUsei / 1e6;
+  const feeSei = feeUsei / 1e6; // Assuming SEI has 6 decimal places (microSEI)
   const feeUsd = price?.usd ? feeSei * price.usd : null;
 
+  const valueSei = useMemo(() => {
+    const n = Number(tx?.value ?? 0); // Assuming value is in microSEI
+    return Number.isFinite(n) ? n / 1e6 : 0;
+  }, [tx?.value]);
+  const valueUsd = price?.usd ? valueSei * price.usd : null;
+
   const typeBadge = useMemo(() => {
-    // best-effort classification
     if (tx?.type) {
-      if (tx.type.toLowerCase().includes('evm')) return 'EVMTransaction';
-      if (tx.type.toLowerCase().includes('wasm') || tx.type.toLowerCase().includes('cosmos')) return 'CosmosTransaction';
+      if (tx.type.toLowerCase().includes('evm') || isEvm(tx.from) || isEvm(tx.to)) return 'EVM Transaction';
+      if (tx.type.toLowerCase().includes('wasm') || tx.type.toLowerCase().includes('cosmos') || isBech32(tx.from) || isBech32(tx.to)) return 'Cosmos Transaction';
       return tx.type;
     }
-    // infer from addresses
-    if (isEvm(tx?.from) || isEvm(tx?.to)) return 'EVMTransaction';
-    if (isBech32(tx?.from) || isBech32(tx?.to)) return 'CosmosTransaction';
+    if (isEvm(tx?.from) || isEvm(tx?.to)) return 'EVM Transaction';
+    if (isBech32(tx?.from) || isBech32(tx?.to)) return 'Cosmos Transaction';
     return 'Transaction';
   }, [tx]);
 
   if (loading) {
     return (
-      <div className="mt-10 px-10 text-white font-sans">
+      <div className="mt-10 px-4 sm:px-6 lg:px-8 text-white font-sans">
         <div className="max-w-4xl mx-auto text-center py-20">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading transaction...</p>
+          <FaSpinner className="animate-spin text-4xl text-blue-400 mx-auto mb-4" />
+          <p className="text-lg">Loading transaction details...</p>
         </div>
       </div>
     );
@@ -154,133 +200,180 @@ const TransactionDetails: React.FC = () => {
 
   if (!tx) {
     return (
-      <div className="mt-10 px-10 text-white font-sans">
-        <div className="max-w-4xl mx-auto text-center py-20">
-          <h2 className="text-2xl font-semibold mb-4">Transaction Not Found</h2>
-          <button
-            onClick={() => navigate('/explorer')}
-            className="px-6 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-lg"
-          >
-            Back to Explorer
-          </button>
+      <div className="mt-10 px-4 sm:px-6 lg:px-8 text-white font-sans">
+        <div className="max-w-4xl mx-auto py-10 px-6 bg-[#111827] rounded-lg shadow-md">
+          <div className="flex items-center gap-4 mb-6">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm transition-colors">
+              <FaArrowLeft /> Back
+            </button>
+            <h1 className="text-2xl font-bold text-red-400">Transaction Not Found</h1>
+          </div>
+          <p className="text-lg text-red-300 mb-6">The transaction with hash "{hash}" could not be found.</p>
+          <p className="text-gray-400">Please check the hash or try again later.</p>
         </div>
       </div>
     );
   }
 
+  const isCopied = (text: string) => copiedText === text;
+
   return (
-    <div className="mt-10 px-10 text-white font-sans">
-      <div className="max-w-5xl mx-auto">
-        {/* Back */}
-        <div className="flex items-center gap-4 mb-6">
+    <div className="mt-10 px-4 sm:px-6 lg:px-8 text-white font-sans">
+      <div className="max-w-6xl mx-auto">
+        {/* Back button and Header */}
+        <div className="flex items-center justify-between mb-6">
           <button
-            onClick={() => navigate('/explorer')}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg"
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm transition-colors"
           >
-            <FaArrowLeft />
-            Back to Explorer
+            <FaArrowLeft /> Back
           </button>
+          <div className="flex items-center gap-2 text-gray-400 text-sm">
+            <FaCircle className="text-green-500 text-xs" /> {/* Status dot */}
+            {formatTimestamp(tx.timestamp)}
+          </div>
         </div>
 
-        {/* Card */}
-        <div className="bg-[#111827] p-6 rounded-xl shadow-md">
-          {/* Header line with badge + time */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-xs bg-blue-900 text-blue-200 border border-blue-700">
-                {typeBadge}
-              </span>
-            </div>
-            <div className="text-sm text-gray-400">
-              {tx.timestamp ? `${new Date(tx.timestamp).toLocaleString()} • ${timeAgo(tx.timestamp)}` : 'Time unknown'}
-            </div>
-          </div>
-
-          {/* Rows like the explorer */}
-          {/* From */}
-          {tx.from && (
-            <LabeledRow label="From">
-              <>
-                <TinyAvatar seed={tx.from} />
-                <button
-                  className="font-mono text-sm text-blue-300 hover:underline"
-                  onClick={() => navigate(`/address/${tx.from}`)}
-                  title={tx.from}
-                >
-                  {short(tx.from)}
-                </button>
-                <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.from!)}>
-                  <FaCopy />
-                </button>
-              </>
-            </LabeledRow>
-          )}
-
-          {/* To */}
-          {tx.to && (
-            <LabeledRow label="To">
-              <>
-                <TinyAvatar seed={tx.to} />
-                <button
-                  className="font-mono text-sm text-blue-300 hover:underline"
-                  onClick={() => navigate(`/address/${tx.to}`)}
-                  title={tx.to}
-                >
-                  {short(tx.to)}
-                </button>
-                <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.to!)}>
-                  <FaCopy />
-                </button>
-              </>
-            </LabeledRow>
-          )}
-
-          {/* Hash */}
-          <LabeledRow label="Hash">
-            <>
-              <a
-                className="font-mono text-sm text-blue-300 hover:underline"
-                href={`/transaction/${tx.hash}`}
-                onClick={(e) => { e.preventDefault(); navigate(`/transaction/${tx.hash}`); }}
-                title={tx.hash}
-              >
-                {short(tx.hash)}
-              </a>
-              <button className="text-gray-400 hover:text-white" onClick={() => copy(tx.hash)}>
+        <div className="bg-[#111827] p-6 rounded-lg shadow-md">
+          {/* Transaction Hash Header */}
+          <div className="flex items-center justify-between border-b border-gray-700 pb-4 mb-4">
+            <div className="flex items-center gap-3">
+              <FaCircle className={`text-${tx.status === true ? 'green' : 'red'}-500 text-sm`} />
+              <h1 className="text-xl font-bold break-all">{short(tx.hash, 15, 15)}</h1>
+              <button onClick={() => copy(tx.hash)} className="text-gray-400 hover:text-white" title="Copy Transaction Hash">
                 <FaCopy />
               </button>
-            </>
-          </LabeledRow>
+              {isCopied(tx.hash) && <span className="text-green-400 text-xs">Copied!</span>}
+            </div>
+            {/* You could add a JSON export button here if needed */}
+            {/* <button className="px-3 py-1 bg-gray-700 rounded-md text-sm hover:bg-gray-600">JSON <FaExternalLinkAlt className="inline-block ml-1 text-xs" /></button> */}
+          </div>
 
-          {/* Block */}
-          <LabeledRow label="Block">
-            <>
-              <button
-                className="hover:underline"
-                onClick={() => tx.height && navigate(`/block/${tx.height}`)}
-              >
-                {tx.height ?? 'Unknown'}
+          {/* Details Tabs */}
+          <div className="flex border-b border-gray-700 mb-4">
+            <button className="py-2 px-4 text-sm font-medium text-blue-400 border-b-2 border-blue-400">
+              Details
+            </button>
+            {/* Add other tabs like "Token Transfers", "Logs", "State" if you implement them */}
+            {/* <button className="py-2 px-4 text-sm font-medium text-gray-400 hover:text-white">Token Transfers ({tx.tokenTransfersCount || 0})</button> */}
+            {/* <button className="py-2 px-4 text-sm font-medium text-gray-400 hover:text-white">Logs ({tx.logsCount || 0})</button> */}
+            {/* <button className="py-2 px-4 text-sm font-medium text-gray-400 hover:text-white">State</button> */}
+          </div>
+
+          {/* EVM Details Section */}
+          <h2 className="text-lg font-semibold mb-3">EVM details</h2>
+          <div className="space-y-2">
+            <LabeledRow label="Type">
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-900 text-blue-200 border border-blue-700">
+                {tx.type || (tx.method && tx.method !== 'N/A' ? tx.method : 'Execute')}
+              </span>
+            </LabeledRow>
+
+            <LabeledRow label="Block">
+              <Link to={`/block/${tx.height}`} className="text-blue-400 hover:underline">
+                {tx.height}
+              </Link>
+              {confirmations !== null && (
+                <span className="text-gray-400 text-xs">
+                  ({confirmations.toLocaleString()} block confirmations ago)
+                </span>
+              )}
+            </LabeledRow>
+
+            <LabeledRow label="Hash">
+              <Link to={`/block/${tx.blockHash || tx.hash}`} className="text-blue-400 hover:underline">
+                {short(tx.blockHash || tx.hash, 15, 15)}
+              </Link>
+              <button onClick={() => copy(tx.blockHash || tx.hash)} className="text-gray-400 hover:text-white">
+                <FaCopy />
               </button>
-              <span className="text-gray-400 text-sm">
-                {confirmations !== null ? `${confirmations.toLocaleString()} block confirmations ago` : ''}
-              </span>
-            </>
-          </LabeledRow>
+              {isCopied(tx.blockHash || tx.hash) && <span className="text-green-400 text-xs">Copied!</span>}
+            </LabeledRow>
 
-          {/* Fee */}
-          <LabeledRow label="Fee">
-            <>
-              <span>{Number.isFinite(feeSei) ? `${feeSei} SEI` : `${tx.fee ?? '—'} usei`}</span>
-              <span className="text-gray-400">
-                {feeUsd !== null ? `$${feeUsd.toFixed(3)}` : '\$0.000'}
-              </span>
-            </>
-          </LabeledRow>
+            {tx.from && (
+              <LabeledRow label="From">
+                <TinyAvatar seed={tx.from} />
+                <Link to={`/address/${tx.from}`} className="text-blue-400 hover:underline">
+                  {short(tx.from, 15, 15)}
+                </Link>
+                <button onClick={() => copy(tx.from)} className="text-gray-400 hover:text-white">
+                  <FaCopy />
+                </button>
+                {isCopied(tx.from) && <span className="text-green-400 text-xs">Copied!</span>}
+              </LabeledRow>
+            )}
+
+            {tx.to && (
+              <LabeledRow label="To">
+                <TinyAvatar seed={tx.to} />
+                <Link to={`/address/${tx.to}`} className="text-blue-400 hover:underline">
+                  {short(tx.to, 15, 15)}
+                </Link>
+                <button onClick={() => copy(tx.to)} className="text-gray-400 hover:text-white">
+                  <FaCopy />
+                </button>
+                {isCopied(tx.to) && <span className="text-green-400 text-xs">Copied!</span>}
+              </LabeledRow>
+            )}
+
+            <LabeledRow label="Value">
+              <span>{valueSei.toFixed(4)} SEI</span>
+              <span className="text-gray-400">~{valueUsd !== null ? `$${valueUsd.toFixed(3)}` : '\$0.000'}</span>
+            </LabeledRow>
+
+            {tx.position !== undefined && (
+              <LabeledRow label="Position">
+                <span>{tx.position}</span>
+              </LabeledRow>
+            )}
+
+            {tx.nonce !== undefined && (
+              <LabeledRow label="Nonce">
+                <span>{tx.nonce}</span>
+              </LabeledRow>
+            )}
+
+            <LabeledRow label="Transaction fee">
+              <span>{feeSei.toFixed(6)} SEI</span>
+              <span className="text-gray-400">~{feeUsd !== null ? `$${feeUsd.toFixed(3)}` : '\$0.000'}</span>
+            </LabeledRow>
+
+            {tx.gasUsedByTransaction !== undefined && ( // Assuming this field from your backend
+              <LabeledRow label="Gas Used">
+                <span>{tx.gasUsedByTransaction}</span>
+                {tx.gasLimit !== undefined && <span className="text-gray-400">of {tx.gasLimit}</span>}
+              </LabeledRow>
+            )}
+
+            {tx.gasPrice !== undefined && (
+              <LabeledRow label="Gas Price">
+                <span>{tx.gasPrice}</span>
+              </LabeledRow>
+            )}
+
+            {tx.status !== undefined && (
+              <LabeledRow label="Status">
+                {tx.status === true ? (
+                  <span className="flex items-center gap-1 text-green-400">
+                    <FaCheckCircle /> Success
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-red-400">
+                    <FaTimesCircle /> Failed
+                    {tx.failureReason && <span className="text-gray-400">({tx.failureReason})</span>}
+                  </span>
+                )}
+              </LabeledRow>
+            )}
+          </div>
         </div>
 
         {/* Optional raw JSON */}
-        <details className="mt-4">
-          <summary className="cursor-pointer text-sm text-gray-400 hover:text-white">Show raw JSON</summary>
+        <details className="mt-4 bg-[#111827] rounded-lg p-4">
+          <summary className="cursor-pointer text-sm text-gray-400 hover:text-white flex items-center gap-2">
+            Show raw JSON
+            <FaExternalLinkAlt className="inline-block text-xs" />
+          </summary>
           <pre className="mt-2 p-4 bg-black/40 rounded-lg overflow-auto text-xs">
             {JSON.stringify(tx, null, 2)}
           </pre>
