@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { AIService } from '../services/aiService';
 import { BlockchainService } from '../services/blockchainService';
 import { FaPaperPlane, FaRobot, FaUser, FaTrash, FaSpinner } from 'react-icons/fa';
@@ -124,7 +125,7 @@ const Chatbot = () => {
     const lower = query.toLowerCase();
     if (lower.includes('price') || /\bsei\b/.test(lower)) {
       const price = await BlockchainService.getSeiPrice();
-      if (price) return `SEI price: \$${price.usd.toFixed(4)} (24h: ${price.usd_24h_change.toFixed(2)}%)`;
+      if (price) return `SEI price: $${price.usd.toFixed(4)} (24h: ${price.usd_24h_change.toFixed(2)}%)`;
     }
 
     // General AI fallback
@@ -144,10 +145,10 @@ Question: ${query}`;
     if (isSei(raw)) {
       seiAddr = raw;
       // Best-effort to fetch corresponding 0x
-      try { evmAddr = await BlockchainService.getSeiEVMAddress?.(seiAddr) ?? null; } catch {}
+      try { evmAddr = await BlockchainService.getSeiEVMAddress?.(seiAddr) ?? null; } catch (e) { console.warn('evm map error', e); }
     } else if (isEvm(raw)) {
       evmAddr = raw;
-      try { seiAddr = await BlockchainService.getSeiFromEvmAddress(evmAddr); } catch {}
+      try { seiAddr = await BlockchainService.getSeiFromEvmAddress(evmAddr); } catch (e) { console.warn('sei map error', e); }
     }
 
     // If we still don’t have a Sei address, try a generic search
@@ -156,7 +157,7 @@ Question: ${query}`;
         const s = await BlockchainService.search?.(raw);
         const found = s?.account?.address ?? s?.address ?? s?.result?.address ?? null;
         if (found && isSei(found)) seiAddr = found;
-      } catch {}
+      } catch (e) { console.warn('generic search error', e); }
     }
 
     if (!seiAddr) {
@@ -167,7 +168,7 @@ Question: ${query}`;
           if (c) {
             return formatContractResponse(c);
           }
-        } catch {}
+        } catch (e) { console.warn('contract lookup error', e); }
       }
       return `No Sei account found for ${raw}. If this is an EVM-only address, the explorer may not have a Sei mapping.`;
     }
@@ -189,7 +190,7 @@ Question: ${query}`;
     const commission = useiToSei(acct.wallet.commission);
     const vesting = useiToSei(acct.wallet.vesting);
     const totalSei = available + delegated + unbonding + rewards + commission + vesting;
-    const usdVal = price?.usd ? ` (~\$${(totalSei * price.usd).toFixed(2)})` : '';
+    const usdVal = price?.usd ? ` (~$${(totalSei * price.usd).toFixed(2)})` : '';
 
     const lines: string[] = [];
     lines.push('Account summary');
@@ -207,7 +208,8 @@ Question: ${query}`;
 
     if (txs && txs.length) {
       lines.push('- Recent transactions:');
-      txs.slice(0, 5).forEach((t: any, i: number) => {
+      type TxLike = { hash?: string; type?: string; timestamp?: string; from?: string; to?: string };
+      txs.slice(0, 5).forEach((t: TxLike, i: number) => {
         const dir = t.from === seiAddr ? 'OUT' : t.to === seiAddr ? 'IN' : '';
         lines.push(
           `  ${i + 1}. ${short(t.hash ?? '', 10, 10)} • ${t.type ?? 'Tx'} • ${timeAgo(t.timestamp)}${dir ? ` • ${dir}` : ''}`
@@ -227,9 +229,12 @@ Question: ${query}`;
           if (contract.symbol) lines.push(`  • Symbol: ${contract.symbol}`);
           if (contract.verified !== undefined) lines.push(`  • Verified: ${contract.verified ? 'yes' : 'no'}`);
         }
-      } catch {}
+      } catch (e) {
+        console.warn('cosmos contract lookup error', e);
+      }
     }
 
+    lines.push(`\nView in explorer: /address/${seiAddr}`);
     return lines.join('\n');
   };
 
@@ -238,7 +243,8 @@ Question: ${query}`;
     // Try both 0x and bare for compatibility
     const candidates = hash.startsWith('0x') ? [hash, hash.slice(2)] : [hash, `0x${hash}`];
 
-    let tx: any = null;
+    type TxObj = { hash?: string; height?: string; timestamp?: string; type?: string; from?: string; to?: string; gasUsed?: string; fee?: string };
+    let tx: TxObj | null = null;
     for (const h of candidates) {
       const t = await BlockchainService.getTransaction(h);
       if (t && t.hash) { tx = t; break; }
@@ -248,7 +254,7 @@ Question: ${query}`;
     const price = await BlockchainService.getSeiPrice?.();
     const feeUsei = Number(tx.fee ?? 0);
     const feeSei = Number.isFinite(feeUsei) ? feeUsei / 1e6 : 0;
-    const feeUsd = price?.usd ? ` (~\$${(feeSei * price.usd).toFixed(3)})` : '';
+    const feeUsd = price?.usd ? ` (~$${(feeSei * price.usd).toFixed(3)})` : '';
 
     const lines: string[] = [];
     lines.push('Transaction');
@@ -262,9 +268,10 @@ Question: ${query}`;
     if (tx.fee !== undefined) lines.push(`- Fee: ${feeSei} SEI${feeUsd}`);
     // Optional AI explanation if you want a natural-language summary:
     try {
-      const analysis = await AIService.analyzeTransaction?.(tx.hash);
+      const analysis = tx.hash ? await AIService.analyzeTransaction?.(tx.hash) : null;
       if (analysis?.summary) lines.push(`- Notes: ${analysis.summary}`);
-    } catch {}
+    } catch (e) { console.warn('ai analyze error', e); }
+    if (tx.hash) lines.push(`\nView in explorer: /transaction/${tx.hash}`);
     return lines.join('\n');
   };
 
@@ -278,11 +285,12 @@ Question: ${query}`;
     if (block.hash) lines.push(`- Hash: ${block.hash}`);
     if (block.proposer) lines.push(`- Proposer: ${block.proposer}`);
     if (block.transactions !== undefined) lines.push(`- Transactions: ${block.transactions}`);
+    lines.push(`\nView in explorer: /block/${block.height}`);
     return lines.join('\n');
   };
 
   // Optional contract summary helper (used when user pastes an 0x that’s actually a contract)
-  const formatContractResponse = (c: any): string => {
+  const formatContractResponse = (c: { [key: string]: unknown; address?: string; name?: string; symbol?: string; standard?: string; verified?: boolean; creator?: string; creationTxHash?: string; totalSupply?: string; txCount?: number }): string => {
     const lines: string[] = [];
     lines.push('Contract');
     if (c.address) lines.push(`- Address: ${c.address}`);
@@ -297,25 +305,41 @@ Question: ${query}`;
     return lines.join('\n');
   };
 
-  // Clear chat
-  const handleClearChat = () => {
-    setMessages([]);
-    setError(null);
+  // Basic renderer to convert explorer paths in text to clickable links
+  const renderMessageContent = (text: string) => {
+    // Split by newlines and auto-link known explorer paths
+    const lines = text.split('\n');
+    return (
+      <div>
+        {lines.map((line, idx) => {
+          const match = line.match(/\/(address|transaction|block)\/[0-9a-zA-Z]+/);
+          if (match) {
+            const before = line.slice(0, match.index);
+            const url = match[0];
+            const after = line.slice((match.index ?? 0) + url.length);
+            return (
+              <div key={idx}>
+                {before}
+                <Link to={url} className="text-blue-300 hover:underline">{url}</Link>
+                {after}
+              </div>
+            );
+          }
+          return <div key={idx}>{line}</div>;
+        })}
+      </div>
+    );
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  // Clear chat
+  // helpers removed (unused)
 
   return (
     <main className="pt-24 px-4 sm:px-6 lg:px-8 text-white font-sans min-h-screen bg-[#0b1220]">
       <section className="border rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 p-6 mb-6 shadow-lg">
         <div className="flex justify-between items-center">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl sm:text-3xl font-bold">AstraGuard AI</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">SeiGuard AI</h1>
             <h2 className="text-sm opacity-90">Your AI copilot for Sei Network — addresses, txs, blocks, contracts, and more</h2>
           </div>
         </div>
@@ -356,7 +380,7 @@ Question: ${query}`;
                     <span className="text-xs font-semibold">{m.role === 'user' ? 'You' : 'SeiGuard AI'}</span>
                     <span className="text-xs text-gray-300">{m.timestamp.toLocaleTimeString()}</span>
                   </div>
-                  <div className="text-sm whitespace-pre-wrap">{m.content}</div>
+                  <div className="text-sm whitespace-pre-wrap">{renderMessageContent(m.content)}</div>
                 </div>
               </div>
             ))}

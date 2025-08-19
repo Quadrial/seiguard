@@ -44,16 +44,7 @@ const normalizeHash = (h: string) => {
   return /^[0-9a-fA-F]{64}$/.test(bare) ? (h.startsWith('0x') ? h : `0x${bare}`) : h;
 };
 
-const timeAgo = (ts?: string) => {
-  if (!ts) return 'Unknown';
-  const d = new Date(ts).getTime();
-  if (Number.isNaN(d)) return 'Unknown';
-  const sec = Math.floor((Date.now() - d) / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
-  return `${Math.floor(sec / 86400)}d ago`;
-};
+// Removed unused timeAgo helper
 
 const formatTimestamp = (ts?: string) => {
   if (!ts) return 'Unknown';
@@ -71,8 +62,7 @@ const formatTimestamp = (ts?: string) => {
   return date.toLocaleString('en-US', options);
 };
 
-const isBech32 = (addr?: string) => !!addr && /^sei1[0-9a-z]{20,80}$/i.test(addr);
-const isEvm = (addr?: string) => !!addr && /^0x[0-9a-fA-F]{40}$/.test(addr);
+// Removed unused helpers isBech32 and isEvm
 
 const gradientFor = (seed: string) => {
   let h = 0;
@@ -176,16 +166,7 @@ const TransactionDetails: React.FC = () => {
   }, [tx?.value]);
   const valueUsd = price?.usd ? valueSei * price.usd : null;
 
-  const typeBadge = useMemo(() => {
-    if (tx?.type) {
-      if (tx.type.toLowerCase().includes('evm') || isEvm(tx.from) || isEvm(tx.to)) return 'EVM Transaction';
-      if (tx.type.toLowerCase().includes('wasm') || tx.type.toLowerCase().includes('cosmos') || isBech32(tx.from) || isBech32(tx.to)) return 'Cosmos Transaction';
-      return tx.type;
-    }
-    if (isEvm(tx?.from) || isEvm(tx?.to)) return 'EVM Transaction';
-    if (isBech32(tx?.from) || isBech32(tx?.to)) return 'Cosmos Transaction';
-    return 'Transaction';
-  }, [tx]);
+  // Removed unused typeBadge computation
 
   if (loading) {
     return (
@@ -281,25 +262,25 @@ const TransactionDetails: React.FC = () => {
             </LabeledRow>
 
             <LabeledRow label="Hash">
-              <Link to={`/block/${tx.blockHash || tx.hash}`} className="text-blue-400 hover:underline">
-                {short(tx.blockHash || tx.hash, 15, 15)}
+              <Link to={`/transaction/${tx.hash}`} className="text-blue-400 hover:underline">
+                {short(tx.hash, 15, 15)}
               </Link>
-              <button onClick={() => copy(tx.blockHash || tx.hash)} className="text-gray-400 hover:text-white">
+              <button onClick={() => copy(tx.hash)} className="text-gray-400 hover:text-white">
                 <FaCopy />
               </button>
-              {isCopied(tx.blockHash || tx.hash) && <span className="text-green-400 text-xs">Copied!</span>}
+              {isCopied(tx.hash) && <span className="text-green-400 text-xs">Copied!</span>}
             </LabeledRow>
 
             {tx.from && (
               <LabeledRow label="From">
                 <TinyAvatar seed={tx.from} />
                 <Link to={`/address/${tx.from}`} className="text-blue-400 hover:underline">
-                  {short(tx.from, 15, 15)}
+                  {short(tx.from!, 15, 15)}
                 </Link>
-                <button onClick={() => copy(tx.from)} className="text-gray-400 hover:text-white">
+                <button onClick={() => copy(tx.from!)} className="text-gray-400 hover:text-white">
                   <FaCopy />
                 </button>
-                {isCopied(tx.from) && <span className="text-green-400 text-xs">Copied!</span>}
+                {isCopied(tx.from!)}
               </LabeledRow>
             )}
 
@@ -307,12 +288,12 @@ const TransactionDetails: React.FC = () => {
               <LabeledRow label="To">
                 <TinyAvatar seed={tx.to} />
                 <Link to={`/address/${tx.to}`} className="text-blue-400 hover:underline">
-                  {short(tx.to, 15, 15)}
+                  {short(tx.to!, 15, 15)}
                 </Link>
-                <button onClick={() => copy(tx.to)} className="text-gray-400 hover:text-white">
+                <button onClick={() => copy(tx.to!)} className="text-gray-400 hover:text-white">
                   <FaCopy />
                 </button>
-                {isCopied(tx.to) && <span className="text-green-400 text-xs">Copied!</span>}
+                {isCopied(tx.to!)}
               </LabeledRow>
             )}
 
