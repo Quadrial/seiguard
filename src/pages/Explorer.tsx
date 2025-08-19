@@ -195,6 +195,7 @@ const Explorer = () => {
 
         // 3b) EVM address or contract (0x...)?
         if (isEvmAddress(q)) {
+          const assoc = await BlockchainService.getAssociatedAddress(q).catch(() => null);
           const evmContract = await BlockchainService.getContract('evm', q);
           if (evmContract) {
             sugg.push({
@@ -204,8 +205,8 @@ const Explorer = () => {
               sublabel: short(q)
             });
           } else {
-            // Try to map to a Sei bech32 address; if found, suggest the Sei address
-            const mappedSei = await BlockchainService.getSeiFromEvmAddress(q);
+            // Prefer associated cosmos mapping
+            const mappedSei = assoc?.cosmos || (await BlockchainService.getSeiFromEvmAddress(q));
             if (mappedSei && isSeiBech32(mappedSei)) {
               sugg.push({ type: 'address', id: mappedSei, label: 'Address', sublabel: short(mappedSei) });
             } else {

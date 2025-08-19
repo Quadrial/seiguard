@@ -65,7 +65,14 @@ const AddressDetails: React.FC = () => {
           evmAddr = await BlockchainService.getSeiEVMAddress?.(address) ?? null;
         } else if (isEvm(address)) {
           evmAddr = address;
-          seiAddr = await BlockchainService.getSeiFromEvmAddress(address);
+          // Prefer associated address mapping first
+          try {
+            const assoc = await BlockchainService.getAssociatedAddress(address);
+            if (assoc?.cosmos) seiAddr = assoc.cosmos;
+          } catch {}
+          if (!seiAddr) {
+            seiAddr = await BlockchainService.getSeiFromEvmAddress(address);
+          }
         }
 
         setEvmAddress(evmAddr);

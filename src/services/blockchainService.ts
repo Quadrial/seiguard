@@ -102,6 +102,14 @@ export interface SeiPriceData {
   usd_24h_change: number;
 }
 
+const isSeiAddress = (s?: string) => !!s && /^sei1[0-9a-z]{20,80}$/i.test(s);
+
+export interface AssociatedAddress {
+  cosmos?: string;
+  eth?: string;
+  domain?: string;
+  associated?: boolean;
+}
 // Minimal EVM account view for 0x addresses
 export interface EvmAccount {
   address: string;
@@ -124,8 +132,6 @@ const toStr = (n: any) => (n === null || n === undefined ? '0' : String(n));
 // Helpers
 const isEvmAddress = (s?: any): s is string =>
   typeof s === 'string' && /^0x[0-9a-fA-F]{40}$/.test(s);
-const isSeiAddress = (s?: any): s is string =>
-  typeof s === 'string' && /^sei1[0-9a-z]{20,80}$/i.test(s);
 
 // Some feeds put the EVM address in "hash". This picks the actual contract address reliably.
 const pickAddress = (raw: any): string => {
@@ -656,6 +662,10 @@ export class BlockchainService {
 
   static async getSeiFromEvmAddress(evmAddress: string): Promise<string | null> {
     try {
+      // Prefer associated-address mapping first
+      const assoc = await this.getAssociatedAddress(evmAddress);
+      if (assoc?.cosmos && isSeiAddress(assoc.cosmos)) return assoc.cosmos;
+
       const mapRes = await fetch(`${SEISTREAM_API}/address/${evmAddress}/sei`);
       if (mapRes.ok) {
         const mapBody = await mapRes.json().catch(() => null);
@@ -676,6 +686,24 @@ export class BlockchainService {
       return null;
     } catch (err) {
       console.error(`getSeiFromEvmAddress(${evmAddress}) error:`, err);
+      return null;
+    }
+  }
+
+  static async getAssociatedAddress(address: string): Promise<AssociatedAddress | null> {
+    try {
+      const res = await fetch(`${SEISTREAM_API}/accounts/associated-address/${address}`);
+      if (!res.ok) return null;
+      const body: any = await res.json().catch(() => null);
+      if (!body || typeof body !== 'object') return null;
+      return {
+        cosmos: typeof body.cosmos === 'string' ? body.cosmos : undefined,
+        eth: typeof body.eth === 'string' ? body.eth : undefined,
+        domain: typeof body.domain === 'string' ? body.domain : undefined,
+        associated: Boolean(body.associated)
+      };
+    } catch (err) {
+      console.error(`getAssociatedAddress(${address}) error:`, err);
       return null;
     }
   }

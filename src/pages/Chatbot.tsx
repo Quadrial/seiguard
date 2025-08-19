@@ -36,6 +36,10 @@ const useiToSei = (v: string | number | undefined | null) => {
   const n = Number(v ?? 0);
   return Number.isFinite(n) ? n / 1e6 : 0; // adjust if your API already returns SEI
 };
+const weiToSei = (v: string | number | undefined | null) => {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n / 1e18 : 0;
+};
 
 type Entity =
   | { kind: 'tx'; id: string }
@@ -161,13 +165,42 @@ Question: ${query}`;
     }
 
     if (!seiAddr) {
-      // If it's a contract-like 0x, try contract lookup before giving up
+      // EVM-only path: summarize via EVM endpoints
       if (isEvm(raw)) {
+        const [assoc, evmInfo, txs, price] = await Promise.all([
+          BlockchainService.getAssociatedAddress(raw),
+          BlockchainService.getEvmAddressInfo(raw),
+          BlockchainService.getEvmAccountTransactions(raw, 10),
+          BlockchainService.getSeiPrice?.()
+        ]);
+        if (!seiAddr && assoc?.cosmos) seiAddr = assoc.cosmos;
+        if (evmInfo) {
+          type EvmInfo = { balance?: string; txsCount?: number };
+          type TxLike = { hash?: string; type?: string; timestamp?: string };
+          const info = evmInfo as unknown as EvmInfo;
+          const balSei = weiToSei(info.balance ?? 0);
+          const usdVal = price?.usd ? ` (~$${(balSei * price.usd).toFixed(2)})` : '';
+          const lines: string[] = [];
+          lines.push('EVM Address summary');
+          lines.push(`- Address: ${raw}`);
+          lines.push(`- Balance: ${balSei.toFixed(6)} SEI${usdVal}`);
+          if (typeof info.txsCount === 'number') lines.push(`- Tx count: ${info.txsCount}`);
+          if (txs && txs.length) {
+            lines.push('- Recent transactions:');
+            (txs as unknown as TxLike[]).slice(0, 5).forEach((t, i) => {
+              const hash = t.hash;
+              const type = t.type;
+              const ts = t.timestamp;
+              lines.push(`  ${i + 1}. ${short(hash ?? '', 10, 10)} • ${type ?? 'Tx'} • ${timeAgo(ts)}`);
+            });
+          }
+          lines.push(`\nView in explorer: /address/${raw}`);
+          return lines.join('\n');
+        }
+        // Try contract lookup as a last resort
         try {
           const c = await BlockchainService.getContract?.('evm', raw);
-          if (c) {
-            return formatContractResponse(c);
-          }
+          if (c) return formatContractResponse(c);
         } catch (e) { console.warn('contract lookup error', e); }
       }
       return `No Sei account found for ${raw}. If this is an EVM-only address, the explorer may not have a Sei mapping.`;
