@@ -1,9 +1,18 @@
-
-// // NewContracts.tsx
 // import React, { useEffect, useState } from 'react';
-// import { FaCode, FaBrain, FaCheckCircle, FaExclamationTriangle, FaSyncAlt, FaPlus, FaTrash } from 'react-icons/fa';
-// import { BlockchainService } from '../services/blockchainService'; // adjust path
-// import type { SeiContract, ContractType  } from '../services/blockchainService';
+// import {
+//   FaCheckCircle,
+//   FaExclamationTriangle,
+//   FaSyncAlt,
+//   FaPlayCircle,
+//   FaDotCircle,
+//   FaCopy,
+//   FaExchangeAlt,
+//   FaSpinner
+// } from 'react-icons/fa';
+// import { BlockchainService } from '../services/blockchainService';
+// import type { SeiContract, ContractType } from '../services/blockchainService';
+
+// type RiskLevel = 'low' | 'medium' | 'high';
 
 // interface ContractView {
 //   address: string;
@@ -11,24 +20,47 @@
 //   deployer?: string;
 //   timestamp?: string;
 //   verified?: boolean;
-//   riskLevel?: 'low' | 'medium' | 'high';
+//   riskLevel?: RiskLevel;
 //   aiSummary?: string;
 //   source?: ContractType;
 //   raw?: any;
+//   interactionCount?: number;
 // }
 
 // const NewContracts: React.FC = () => {
 //   const [contracts, setContracts] = useState<ContractView[]>([]);
 //   const [loading, setLoading] = useState(true);
 //   const [error, setError] = useState<string | null>(null);
+//   const [copied, setCopied] = useState<string | null>(null);
 
-//   // Add form state
-//   const [showAdd, setShowAdd] = useState(false);
-//   const [newAddress, setNewAddress] = useState('');
-//   const [newType, setNewType] = useState<ContractType>('evm');
-//   const [newName, setNewName] = useState('');
-//   const [newCreator, setNewCreator] = useState('');
-//   const [submitting, setSubmitting] = useState(false);
+//   // Filters
+//   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+//   const [networkFilter, setNetworkFilter] = useState<'all' | 'cosmos' | 'evm'>('all');
+
+//   // Selection & analysis states
+//   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+//   const [selectedSource, setSelectedSource] = useState<ContractType | null>(null);
+//   const [analyzing, setAnalyzing] = useState<string | null>(null);
+//   const [loadingInteractions, setLoadingInteractions] = useState<string | null>(null);
+
+//   const copyToClipboard = async (text: string, contractAddress: string) => {
+//     try {
+//       await navigator.clipboard.writeText(text);
+//       setCopied(contractAddress);
+//       setTimeout(() => setCopied(null), 2000);
+//     } catch (error) {
+//       console.error('Failed to copy:', error);
+//       // Fallback for older browsers
+//       const textArea = document.createElement('textarea');
+//       textArea.value = text;
+//       document.body.appendChild(textArea);
+//       textArea.select();
+//       document.execCommand('copy');
+//       document.body.removeChild(textArea);
+//       setCopied(contractAddress);
+//       setTimeout(() => setCopied(null), 2000);
+//     }
+//   };
 
 //   const normalizeToView = (c: SeiContract): ContractView => ({
 //     address: c.address,
@@ -36,11 +68,42 @@
 //     deployer: c.creator || c.deployer || undefined,
 //     timestamp: c.timestamp,
 //     verified: c.verified,
-//     riskLevel: c.riskLevel || (c.verified ? 'low' : 'medium'),
+//     riskLevel: (c.riskLevel as RiskLevel) || (c.verified ? 'low' : 'medium'),
 //     aiSummary: c.aiSummary || c.analysis || undefined,
 //     source: c.type as ContractType,
-//     raw: c
+//     raw: c,
+//     interactionCount: 0 // Initialize with 0, will be loaded separately
 //   });
+
+//   const loadInteractionCount = async (contractAddress: string) => {
+//     setLoadingInteractions(contractAddress);
+//     try {
+//       // Try to get transaction count for this contract
+//       const transactions = await BlockchainService.getAccountTransactions?.(contractAddress, 1000);
+//       const interactionCount = transactions?.length || 0;
+      
+//       // Update the specific contract's interaction count
+//       setContracts(prev =>
+//         prev.map(c => 
+//           c.address === contractAddress 
+//             ? { ...c, interactionCount }
+//             : c
+//         )
+//       );
+//     } catch (err) {
+//       console.error('Failed to load interaction count:', err);
+//       // Set to 0 if failed
+//       setContracts(prev =>
+//         prev.map(c => 
+//           c.address === contractAddress 
+//             ? { ...c, interactionCount: 0 }
+//             : c
+//         )
+//       );
+//     } finally {
+//       setLoadingInteractions(null);
+//     }
+//   };
 
 //   const load = async () => {
 //     setLoading(true);
@@ -68,15 +131,168 @@
 
 //   useEffect(() => {
 //     load();
-//     // eslint-disable-next-line react-hooks/exhaustive-deps
 //   }, []);
 
-//   const handleRefresh = () => load();
+//   // Derived: filtered list
+//   const filteredContracts = contracts.filter((c) => {
+//     if (statusFilter === 'verified' && !c.verified) return false;
+//     if (statusFilter === 'unverified' && c.verified) return false;
+//     if (networkFilter !== 'all' && c.source !== networkFilter) return false;
+//     return true;
+//   });
+
+//   const handleSelect = async (c: ContractView) => {
+//     if (selectedAddress === c.address && selectedSource === c.source) {
+//       setSelectedAddress(null);
+//       setSelectedSource(null);
+//     } else {
+//       setSelectedAddress(c.address);
+//       setSelectedSource(c.source || null);
+      
+//       // Load interaction count when contract is selected
+//       if (c.interactionCount === undefined || c.interactionCount === 0) {
+//         await loadInteractionCount(c.address);
+//       }
+//     }
+//   };
+
+//   const handleAnalyze = async (contract: ContractView) => {
+//     if (!contract.address || !contract.source) {
+//       setError('Missing address or source');
+//       return;
+//     }
+    
+//     setAnalyzing(contract.address);
+//     setError(null);
+    
+//     try {
+//       // Enhanced analysis that works for both verified and unverified contracts
+//       const analysisPromises = [];
+      
+//       // Always try to analyze the contract regardless of verification status
+//       analysisPromises.push(
+//         BlockchainService.analyzeContract(contract.source, contract.address)
+//       );
+      
+//       // Also load interaction count if not already loaded
+//       if (contract.interactionCount === undefined) {
+//         analysisPromises.push(loadInteractionCount(contract.address));
+//       }
+      
+//       const [analysisResult] = await Promise.all(analysisPromises);
+      
+//       if (!analysisResult.success) {
+//         // For unverified contracts, provide basic analysis
+//         const basicAnalysis = generateBasicAnalysis(contract);
+//         setContracts(prev =>
+//           prev.map(c => 
+//             c.address === contract.address 
+//               ? { 
+//                   ...c, 
+//                   aiSummary: basicAnalysis,
+//                   riskLevel: contract.verified ? 'low' : 'medium'
+//                 }
+//               : c
+//           )
+//         );
+//       } else {
+//         // Use the full analysis result
+//         setContracts(prev =>
+//           prev.map(c => 
+//             c.address === contract.address 
+//               ? { 
+//                   ...c, 
+//                   aiSummary: analysisResult.aiSummary || c.aiSummary, 
+//                   riskLevel: analysisResult.riskLevel || c.riskLevel 
+//                 }
+//               : c
+//           )
+//         );
+//       }
+//     } catch (err) {
+//       console.error('analyzeContract call failed:', err);
+      
+//       // Fallback: provide basic analysis for any contract
+//       const basicAnalysis = generateBasicAnalysis(contract);
+//       setContracts(prev =>
+//         prev.map(c => 
+//           c.address === contract.address 
+//             ? { 
+//                 ...c, 
+//                 aiSummary: basicAnalysis,
+//                 riskLevel: contract.verified ? 'low' : 'medium'
+//               }
+//             : c
+//         )
+//       );
+//     } finally {
+//       setAnalyzing(null);
+//     }
+//   };
+
+//   const generateBasicAnalysis = (contract: ContractView): string => {
+//     let analysis = `📋 **Contract Analysis Report**\n\n`;
+    
+//     if (contract.verified) {
+//       analysis += `✅ **Verification Status:** Verified contract with source code available\n`;
+//       analysis += `🔒 **Risk Level:** Low - Source code has been verified and is publicly auditable\n`;
+//     } else {
+//       analysis += `⚠️ **Verification Status:** Unverified contract - source code not available\n`;
+//       analysis += `🔶 **Risk Level:** Medium - Exercise caution when interacting\n`;
+//     }
+    
+//     analysis += `🌐 **Network:** ${contract.source?.toUpperCase()} on Sei Network\n`;
+//     analysis += `📍 **Address:** ${contract.address}\n`;
+    
+//     if (contract.deployer) {
+//       analysis += `👤 **Deployed by:** ${contract.deployer}\n`;
+//     }
+    
+//     if (contract.timestamp) {
+//       analysis += `⏰ **Deployed:** ${new Date(contract.timestamp).toLocaleString()}\n`;
+//     }
+    
+//     if (contract.interactionCount !== undefined) {
+//       analysis += `📊 **Total Interactions:** ${contract.interactionCount.toLocaleString()}\n`;
+      
+//       if (contract.interactionCount > 1000) {
+//         analysis += `🔥 **Activity Level:** High - This contract has significant usage\n`;
+//       } else if (contract.interactionCount > 100) {
+//         analysis += `📈 **Activity Level:** Moderate - Regular usage detected\n`;
+//       } else {
+//         analysis += `📉 **Activity Level:** Low - Limited usage detected\n`;
+//       }
+//     }
+    
+//     analysis += `\n💡 **Recommendation:** `;
+//     if (contract.verified && (contract.interactionCount || 0) > 100) {
+//       analysis += `This appears to be a well-established, verified contract with good activity.`;
+//     } else if (contract.verified) {
+//       analysis += `Verified contract but with limited activity. Review carefully before interacting.`;
+//     } else {
+//       analysis += `Unverified contract. Consider waiting for verification or use with extreme caution.`;
+//     }
+    
+//     return analysis;
+//   };
+
+//   const handleAnalyzeSelected = async () => {
+//     if (!selectedAddress || !selectedSource) {
+//       setError('No contract selected.');
+//       return;
+//     }
+//     const c = contracts.find((x) => x.address === selectedAddress && x.source === selectedSource);
+//     if (!c) {
+//       setError('Selected contract not found.');
+//       return;
+//     }
+//     await handleAnalyze(c);
+//   };
 
 //   const formatAddress = (address: string) => {
 //     if (!address) return '';
 //     if (address.length <= 24) return address;
-//     return `${address.substring(0, 12)}...${address.substring(address.length - 12)}`;
+//     return `${address.substring(0, 8)}...${address.substring(address.length - 8)}`;
 //   };
 
 //   const timeAgoOrDate = (ts?: string) => {
@@ -90,191 +306,264 @@
 //     return d.toLocaleString();
 //   };
 
-//   // Add contract via service
-//   const handleAdd = async () => {
-//     if (!newAddress) {
-//       setError('Address is required');
-//       return;
-//     }
-//     setSubmitting(true);
-//     setError(null);
-
-//     const payload: Partial<SeiContract> = {
-//       address: newAddress,
-//       creator: newCreator || undefined,
-//       name: newName || undefined,
-//       timestamp: new Date().toISOString()
-//     };
-
-//     const created = await BlockchainService.addContract(newType, payload);
-//     if (!created) {
-//       setError('Failed to add contract (server may not support POST /contracts/{type})');
-//       setSubmitting(false);
-//       return;
-//     }
-
-//     // Optimistic prepend and refresh
-//     setContracts((prev) => [normalizeToView(created), ...prev]);
-//     setShowAdd(false);
-//     setNewAddress('');
-//     setNewName('');
-//     setNewCreator('');
-//     setSubmitting(false);
-//   };
-
-//   // Remove contract via service
-//   const handleRemove = async (c: ContractView) => {
-//     if (!c.address || !c.source) {
-//       setError('Cannot remove: missing address or source');
-//       return;
-//     }
-//     // optimistic UI remove
-//     const prev = contracts;
-//     setContracts((p) => p.filter((x) => x.address !== c.address || x.source !== c.source));
-//     const ok = await BlockchainService.removeContract(c.source, c.address);
-//     if (!ok) {
-//       // revert
-//       setContracts(prev);
-//       setError('Failed to remove contract (server may not support DELETE /contracts/{type}/{address})');
-//     }
-//   };
-
 //   const total = contracts.length;
 //   const verifiedCount = contracts.filter((c) => c.verified).length;
 //   const aiAnalyzedCount = contracts.filter((c) => !!c.aiSummary).length;
 //   const aiAnalyzedPercent = total ? Math.round((aiAnalyzedCount / total) * 100) : 0;
 
 //   return (
-//     <div className="mt-10 px-10 text-white font-sans">
-//       <div className="max-w-4xl mx-auto">
-//         <div className="flex items-center justify-between mb-6">
-//           <h1 className="text-3xl font-bold">Smart Contract Deployments</h1>
+//     <div className="py-30 px-10 text-white font-sans">
+//       <div className="max-w-6xl mx-auto">
+//         <div className="flex items-start justify-between mb-6 gap-4">
+//           <div>
+//             <h1 className="text-3xl font-bold">Smart Contract Deployments</h1>
+//             <p className="text-sm text-gray-400 mt-1">
+//               Analyze any contract - verified or unverified. Click to see interaction counts.
+//             </p>
+//           </div>
+
 //           <div className="flex items-center gap-3">
-//             <button onClick={handleRefresh} className="bg-[#111827] px-3 py-2 rounded-md flex items-center gap-2 hover:opacity-90" title="Refresh">
+//             <button 
+//               onClick={load} 
+//               className="bg-[#111827] px-3 py-2 rounded-md flex items-center gap-2 hover:opacity-90" 
+//               title="Refresh"
+//             >
 //               <FaSyncAlt /> Refresh
 //             </button>
-//             <button onClick={() => setShowAdd((s) => !s)} className="bg-[#111827] px-3 py-2 rounded-md flex items-center gap-2 hover:opacity-90" title="Add contract">
-//               <FaPlus /> Add
+//             <button
+//               onClick={handleAnalyzeSelected}
+//               disabled={!selectedAddress || !selectedSource || !!analyzing}
+//               className={`px-3 py-2 rounded-md flex items-center gap-2 ${
+//                 !selectedAddress ? 'bg-gray-700' : 'bg-blue-600'
+//               }`}
+//               title="Analyze selected contract"
+//             >
+//               <FaPlayCircle /> Analyze Selected
 //             </button>
 //           </div>
 //         </div>
 
-//         {/* Add form */}
-//         {showAdd && (
-//           <div className="bg-[#0b1220] p-4 rounded mb-6">
-//             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-//               <input placeholder="Address" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} className="p-2 bg-[#111827] rounded col-span-2" />
-//               <select value={newType} onChange={(e) => setNewType(e.target.value as ContractType)} className="p-2 bg-[#111827] rounded">
-//                 <option value="evm">EVM</option>
-//                 <option value="cosmos">Cosmos</option>
-//               </select>
-//               <input placeholder="Name (optional)" value={newName} onChange={(e) => setNewName(e.target.value)} className="p-2 bg-[#111827] rounded" />
-//               <input placeholder="Creator (optional)" value={newCreator} onChange={(e) => setNewCreator(e.target.value)} className="p-2 bg-[#111827] rounded col-span-2" />
-//               <div className="col-span-2 flex gap-2">
-//                 <button onClick={handleAdd} disabled={submitting} className="px-3 py-2 bg-blue-600 rounded flex items-center gap-2">
-//                   {submitting ? 'Adding...' : 'Add Contract'}
-//                 </button>
-//                 <button onClick={() => setShowAdd(false)} className="px-3 py-2 bg-gray-700 rounded">Cancel</button>
-//               </div>
+//         {/* Filters */}
+//         <div className="flex flex-col md:flex-row gap-3 mb-6 items-center">
+//           <div className="bg-[#111827] p-3 rounded flex items-center gap-3">
+//             <label className="text-gray-400">Status:</label>
+//             <select 
+//               value={statusFilter} 
+//               onChange={(e) => setStatusFilter(e.target.value as any)} 
+//               className="bg-transparent"
+//             >
+//               <option value="all">All</option>
+//               <option value="verified">Verified</option>
+//               <option value="unverified">Unverified</option>
+//             </select>
+//           </div>
+
+//           <div className="bg-[#111827] p-3 rounded flex items-center gap-3">
+//             <label className="text-gray-400">Network:</label>
+//             <select 
+//               value={networkFilter} 
+//               onChange={(e) => setNetworkFilter(e.target.value as any)} 
+//               className="bg-transparent"
+//             >
+//               <option value="all">All</option>
+//               <option value="cosmos">Cosmos</option>
+//               <option value="evm">EVM</option>
+//             </select>
+//           </div>
+
+//           <div className="ml-auto flex gap-3">
+//             <div className="bg-[#111827] p-3 rounded text-center">
+//               <div className="text-sm text-gray-400">Total</div>
+//               <div className="font-bold text-blue-400">{total}</div>
+//             </div>
+//             <div className="bg-[#111827] p-3 rounded text-center">
+//               <div className="text-sm text-gray-400">Verified</div>
+//               <div className="font-bold text-green-400">{verifiedCount}</div>
+//             </div>
+//             <div className="bg-[#111827] p-3 rounded text-center">
+//               <div className="text-sm text-gray-400">AI Analyzed</div>
+//               <div className="font-bold text-cyan-400">{aiAnalyzedPercent}%</div>
 //             </div>
 //           </div>
-//         )}
-
-//         {/* Stats */}
-//         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-//           <div className="bg-[#111827] p-6 rounded-xl shadow-md text-center">
-//             <FaCode className="text-3xl text-blue-400 mx-auto mb-3" />
-//             <h3 className="text-2xl font-bold text-blue-400">{total}</h3>
-//             <p className="text-gray-400">New Contracts</p>
-//           </div>
-//           <div className="bg-[#111827] p-6 rounded-xl shadow-md text-center">
-//             <FaCheckCircle className="text-3xl text-green-400 mx-auto mb-3" />
-//             <h3 className="text-2xl font-bold text-green-400">{verifiedCount}</h3>
-//             <p className="text-gray-400">Verified</p>
-//           </div>
-//           <div className="bg-[#111827] p-6 rounded-xl shadow-md text-center">
-//             <FaBrain className="text-3xl text-cyan-400 mx-auto mb-3" />
-//             <h3 className="text-2xl font-bold text-cyan-400">{aiAnalyzedPercent}%</h3>
-//             <p className="text-gray-400">AI Analyzed</p>
-//           </div>
 //         </div>
+
+//         {/* Error Display */}
+//         {error && (
+//           <div className="bg-red-900/50 border border-red-700 rounded-lg p-4 mb-6 flex items-center gap-3">
+//             <FaExclamationTriangle className="text-red-400" />
+//             <div>
+//               <div className="font-semibold">Error</div>
+//               <div className="text-sm text-gray-400">{error}</div>
+//             </div>
+//             <button
+//               onClick={() => setError(null)}
+//               className="ml-auto text-gray-400 hover:text-white"
+//             >
+//               ✕
+//             </button>
+//           </div>
+//         )}
 
 //         {loading ? (
 //           <div className="text-center py-20">
 //             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
 //             <p className="text-gray-400">Scanning for new contracts...</p>
 //           </div>
-//         ) : error ? (
-//           <div className="bg-[#111827] rounded-xl shadow-md p-6 text-red-300">
-//             <div className="flex items-center gap-3">
-//               <FaExclamationTriangle />
-//               <div>
-//                 <div className="font-semibold">Error</div>
-//                 <div className="text-sm text-gray-400">{error}</div>
-//               </div>
-//             </div>
-//           </div>
 //         ) : (
 //           <div className="bg-[#111827] rounded-xl shadow-md overflow-hidden">
 //             <div className="p-6 border-b border-gray-700">
 //               <h2 className="text-xl font-semibold">Recent Deployments</h2>
+//               <p className="text-sm text-gray-400 mt-1">
+//                 Both EVM and Cosmos contracts • Analysis available for all
+//               </p>
 //             </div>
 
 //             <div className="divide-y divide-gray-700">
-//               {contracts.length === 0 ? (
-//                 <div className="p-6 text-gray-400">No recent contracts found.</div>
+//               {filteredContracts.length === 0 ? (
+//                 <div className="p-6 text-gray-400">No contracts match the selected filters.</div>
 //               ) : (
-//                 contracts.map((contract, index) => (
-//                   <div key={contract.address || index} className="p-6">
-//                     <div className="flex items-center justify-between mb-4">
-//                       <div className="flex items-center gap-4">
-//                         <div className="w-12 h-12 rounded-full bg-blue-900 flex items-center justify-center">
-//                           <FaCode className="text-blue-400" />
+//                 filteredContracts.map((contract, index) => {
+//                   const isSelected = selectedAddress === contract.address && selectedSource === contract.source;
+//                   return (
+//                     <div
+//                       key={contract.address || index}
+//                       className={`p-6 cursor-pointer hover:bg-gray-800/50 transition-colors ${
+//                         isSelected ? 'bg-gray-800' : ''
+//                       }`}
+//                       onClick={() => handleSelect(contract)}
+//                     >
+//                       <div className="flex items-center justify-between mb-4">
+//                         <div className="flex items-center gap-4">
+//                           <div className="w-12 h-12 rounded-full bg-blue-900 flex items-center justify-center">
+//                             <FaDotCircle className="text-blue-400" />
+//                           </div>
+//                           <div>
+//                             <h3 className="font-semibold text-white">
+//                               {contract.name || 'Unnamed Contract'}
+//                             </h3>
+//                             <div className="flex items-center gap-2">
+//                               <p className="text-sm text-gray-400 font-mono">
+//                                 {formatAddress(contract.address)}
+//                               </p>
+//                               <button
+//                                 onClick={(e) => {
+//                                   e.stopPropagation();
+//                                   copyToClipboard(contract.address, contract.address);
+//                                 }}
+//                                 className={`text-gray-400 hover:text-white transition-colors ${
+//                                   copied === contract.address ? 'text-green-400' : ''
+//                                 }`}
+//                                 title="Copy contract address"
+//                               >
+//                                 <FaCopy className="text-xs" />
+//                               </button>
+//                               {copied === contract.address && (
+//                                 <span className="text-green-400 text-xs">Copied!</span>
+//                               )}
+//                             </div>
+//                             <p className="text-xs text-gray-500">
+//                               {contract.source?.toUpperCase()} • {timeAgoOrDate(contract.timestamp)}
+//                             </p>
+//                           </div>
+//                         </div>
+
+//                         <div className="flex items-center gap-3">
+//                           {/* Interaction Count */}
+//                           <div className="flex items-center gap-1 bg-gray-800 px-2 py-1 rounded text-xs">
+//                             {loadingInteractions === contract.address ? (
+//                               <FaSpinner className="animate-spin text-gray-400" />
+//                             ) : (
+//                               <FaExchangeAlt className="text-gray-400" />
+//                             )}
+//                             <span className="text-gray-300">
+//                               {contract.interactionCount !== undefined 
+//                                 ? contract.interactionCount.toLocaleString()
+//                                 : '?'
+//                               }
+//                             </span>
+//                           </div>
+
+//                           <span
+//                             className={`px-3 py-1 rounded-full text-xs font-semibold ${
+//                               contract.riskLevel === 'high' ? 'bg-red-900 text-red-200' :
+//                               contract.riskLevel === 'medium' ? 'bg-yellow-900 text-yellow-200' :
+//                               'bg-green-900 text-green-200'
+//                             }`}
+//                           >
+//                             {(contract.riskLevel || 'medium').toUpperCase()}
+//                           </span>
+
+//                           {contract.verified ? (
+//                             <FaCheckCircle className="text-green-400" title="Verified contract" />
+//                           ) : (
+//                             <FaExclamationTriangle className="text-yellow-400" title="Unverified contract" />
+//                           )}
+
+//                           <button
+//                             onClick={(e) => { 
+//                               e.stopPropagation(); 
+//                               handleAnalyze(contract); 
+//                             }}
+//                             disabled={analyzing === contract.address}
+//                             className="ml-2 px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-sm flex items-center gap-2 transition-colors"
+//                             title="Analyze this contract (works for both verified and unverified)"
+//                           >
+//                             {analyzing === contract.address ? (
+//                               <>
+//                                 <FaSpinner className="animate-spin" />
+//                                 Analyzing...
+//                               </>
+//                             ) : (
+//                               <>
+//                                 <FaPlayCircle /> 
+//                                 Analyze
+//                               </>
+//                             )}
+//                           </button>
+//                         </div>
+//                       </div>
+
+//                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+//                         <div>
+//                           <span className="text-gray-400">Deployer:</span>
+//                           <p className="font-mono text-xs">
+//                             {formatAddress(contract.deployer || 'Unknown')}
+//                           </p>
 //                         </div>
 //                         <div>
-//                           <h3 className="font-semibold text-white">{contract.name || 'Unnamed Contract'}</h3>
-//                           <p className="text-sm text-gray-400 font-mono">{formatAddress(contract.address)}</p>
-//                           <p className="text-xs text-gray-500">{contract.source?.toUpperCase()} • {timeAgoOrDate(contract.timestamp)}</p>
+//                           <span className="text-gray-400">Status:</span>
+//                           <p className={contract.verified ? 'text-green-400' : 'text-yellow-400'}>
+//                             {contract.verified ? 'Verified' : 'Unverified'}
+//                           </p>
+//                         </div>
+//                         <div>
+//                           <span className="text-gray-400">Interactions:</span>
+//                           <p className="text-blue-400">
+//                             {contract.interactionCount !== undefined 
+//                               ? `${contract.interactionCount.toLocaleString()} total`
+//                               : 'Click to load'
+//                             }
+//                           </p>
 //                         </div>
 //                       </div>
 
-//                       <div className="flex items-center gap-3">
-//                         <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-//                           contract.riskLevel === 'high' ? 'bg-red-900 text-red-200' :
-//                           contract.riskLevel === 'medium' ? 'bg-yellow-900 text-yellow-200' :
-//                           'bg-green-900 text-green-200'}`}>
-//                           {(contract.riskLevel || 'medium').toUpperCase()}
-//                         </span>
-//                         {contract.verified ? (
-//                           <FaCheckCircle className="text-green-400" />
-//                         ) : (
-//                           <FaExclamationTriangle className="text-red-400" />
-//                         )}
-//                         <button onClick={() => handleRemove(contract)} title="Remove" className="ml-2 text-red-400 hover:opacity-90">
-//                           <FaTrash />
-//                         </button>
-//                       </div>
-//                     </div>
-
-//                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
 //                       <div>
-//                         <span className="text-gray-400">Deployer:</span>
-//                         <p className="font-mono">{formatAddress(contract.deployer || '')}</p>
-//                       </div>
-//                       <div>
-//                         <span className="text-gray-400">Status:</span>
-//                         <p className={contract.verified ? 'text-green-400' : 'text-red-400'}>
-//                           {contract.verified ? 'Verified' : 'Unverified'}
-//                         </p>
+//                         <span className="text-gray-400 text-sm">AI Analysis:</span>
+//                         <div className="text-sm mt-1 bg-gray-800/50 p-3 rounded">
+//                           {contract.aiSummary ? (
+//                             <pre className="whitespace-pre-wrap font-sans">
+//                               {contract.aiSummary}
+//                             </pre>
+//                           ) : (
+//                             <span className="text-gray-500 italic">
+//                               Click "Analyze" to get AI insights (works for all contracts)
+//                             </span>
+//                           )}
+//                         </div>
 //                       </div>
 //                     </div>
-
-//                     <div>
-//                       <span className="text-gray-400 text-sm">AI Analysis:</span>
-//                       <p className="text-sm mt-1">{contract.aiSummary || 'Pending analysis'}</p>
-//                     </div>
-//                   </div>
-//                 ))
+//                   );
+//                 })
 //               )}
 //             </div>
 //           </div>
@@ -286,7 +575,6 @@
 
 // export default NewContracts;
 
-
 // NewContracts.tsx
 import React, { useEffect, useState } from 'react';
 import {
@@ -294,11 +582,12 @@ import {
   FaExclamationTriangle,
   FaSyncAlt,
   FaPlayCircle,
-  FaDotCircle
+  FaDotCircle,
+  FaCopy,
+  FaChartBar
 } from 'react-icons/fa';
-import { BlockchainService } from '../services/blockchainService'; // adjust path
-import type { SeiContract, ContractType  } from '../services/blockchainService';
-
+import { BlockchainService } from '../services/blockchainService';
+import type { SeiContract, ContractType } from '../services/blockchainService';
 
 type RiskLevel = 'low' | 'medium' | 'high';
 
@@ -307,12 +596,15 @@ interface ContractView {
   name?: string;
   deployer?: string;
   timestamp?: string;
-  verified?: boolean;
+  verified?: boolean; // undefined => unknown
   riskLevel?: RiskLevel;
   aiSummary?: string;
   source?: ContractType;
   raw?: any;
 }
+
+const isSei = (s?: string) => !!s && /^sei1[0-9a-z]{20,80}$/i.test(s);
+const isEvm = (s?: string) => !!s && /^0x[0-9a-fA-F]{40}$/.test(s);
 
 const NewContracts: React.FC = () => {
   const [contracts, setContracts] = useState<ContractView[]>([]);
@@ -323,14 +615,18 @@ const NewContracts: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'unverified'>('all');
   const [networkFilter, setNetworkFilter] = useState<'all' | 'cosmos' | 'evm'>('all');
 
-  // Selection & analysis states
+  // Selection & analysis
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<ContractType | null>(null);
-  const [analyzing, setAnalyzing] = useState<string | null>(null); // address being analyzed
+  const [analyzing, setAnalyzing] = useState<string | null>(null);
+
+  // UI helpers
+  const [copiedAddr, setCopiedAddr] = useState<string | null>(null);
+  const [interactionsMap, setInteractionsMap] = useState<Record<string, number>>({});
 
   const normalizeToView = (c: SeiContract): ContractView => ({
     address: c.address,
-    name: c.name || c.label || undefined,
+    name: c.name || c.label || c.contract_name || undefined,
     deployer: c.creator || c.deployer || undefined,
     timestamp: c.timestamp,
     verified: c.verified,
@@ -387,29 +683,63 @@ const NewContracts: React.FC = () => {
     }
   };
 
-  const handleAnalyze = async (contract: { address: string; source?: 'evm' | 'cosmos' }) => {
-    if (!contract.address || !contract.source) {
-      setError('Missing address or source');
-      return;
-    }
-    setAnalyzing(contract.address);
+  const copyAddress = async (addr: string) => {
     try {
-      const res = await BlockchainService.analyzeContract(contract.source, contract.address);
-      if (!res.success) {
-        setError(res.message || 'Analysis failed');
-      } else {
-        // Merge results into state: update aiSummary and riskLevel
-        setContracts(prev =>
-          prev.map(c => c.address === contract.address ? { ...c, aiSummary: res.aiSummary || c.aiSummary, riskLevel: res.riskLevel || c.riskLevel } : c)
-        );
-      }
-    } catch (err) {
-      console.error('analyzeContract call failed:', err);
-      setError('Analysis request failed');
-    } finally {
-      setAnalyzing(null);
+      await navigator.clipboard.writeText(addr);
+      setCopiedAddr(addr);
+      setTimeout(() => setCopiedAddr(null), 1200);
+    } catch (e) {
+      console.error('Copy failed', e);
     }
   };
+
+  const fetchInteractionCount = async (addr: string, source?: 'evm' | 'cosmos'): Promise<number> => {
+    try {
+      return await BlockchainService.getInteractionCount(addr, source);
+    } catch (e) {
+      console.error('fetchInteractionCount error', e);
+      return 0;
+    }
+  };
+
+  const handleAnalyze = async (contract: { address: string; source?: 'evm' | 'cosmos' }) => {
+  if (!contract.address || !contract.source) {
+    setError('Missing address or source');
+    return;
+  }
+  setAnalyzing(contract.address);
+  try {
+    // 1) Get interaction count from the contract transactions endpoints
+    const count = await BlockchainService.getInteractionCount(contract.address, contract.source);
+    setInteractionsMap(prev => ({ ...prev, [contract.address]: count }));
+
+    // 2) Local analysis (works for verified and unverified)
+    let res: any = null;
+    try {
+      res = await BlockchainService.analyzeContract(contract.source, contract.address, { preferServer: false });
+    } catch {}
+
+    const aiSummary =
+      res?.aiSummary ||
+      `Interactions observed: ${count.toLocaleString()}.${count === 0 ? ' No on-chain activity yet.' : ''}`;
+
+    const nextRisk: 'low' | 'medium' | 'high' =
+      res?.riskLevel || (count > 5000 ? 'high' : count > 500 ? 'medium' : 'low');
+
+    setContracts(prev =>
+      prev.map(c =>
+        c.address === contract.address
+          ? { ...c, aiSummary, riskLevel: nextRisk }
+          : c
+      )
+    );
+  } catch (err) {
+    console.error('Analysis failed', err);
+    setError('Analysis request failed');
+  } finally {
+    setAnalyzing(null);
+  }
+};
 
   const handleAnalyzeSelected = async () => {
     if (!selectedAddress || !selectedSource) {
@@ -442,12 +772,12 @@ const NewContracts: React.FC = () => {
   };
 
   const total = contracts.length;
-  const verifiedCount = contracts.filter((c) => c.verified).length;
+  const verifiedCount = contracts.filter((c) => c.verified === true).length;
   const aiAnalyzedCount = contracts.filter((c) => !!c.aiSummary).length;
   const aiAnalyzedPercent = total ? Math.round((aiAnalyzedCount / total) * 100) : 0;
 
   return (
-    <div className="mt-10 px-10 text-white font-sans">
+    <div className="py-30 px-10 text-white font-sans">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-start justify-between mb-6 gap-4">
           <div>
@@ -533,6 +863,7 @@ const NewContracts: React.FC = () => {
               ) : (
                 filteredContracts.map((contract, index) => {
                   const isSelected = selectedAddress === contract.address && selectedSource === contract.source;
+                  const interactions = interactionsMap[contract.address];
                   return (
                     <div
                       key={contract.address || index}
@@ -546,8 +877,25 @@ const NewContracts: React.FC = () => {
                           </div>
                           <div>
                             <h3 className="font-semibold text-white">{contract.name || 'Unnamed Contract'}</h3>
-                            <p className="text-sm text-gray-400 font-mono">{formatAddress(contract.address)}</p>
-                            <p className="text-xs text-gray-500">{contract.source?.toUpperCase()} • {timeAgoOrDate(contract.timestamp)}</p>
+
+                            {/* Address + Copy */}
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm text-gray-400 font-mono">{formatAddress(contract.address)}</p>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); copyAddress(contract.address); }}
+                                className="px-2 py-1 text-xs bg-gray-800 rounded hover:bg-gray-700"
+                                title="Copy address"
+                              >
+                                <FaCopy />
+                              </button>
+                              {copiedAddr === contract.address && (
+                                <span className="text-green-400 text-xs">Copied!</span>
+                              )}
+                            </div>
+
+                            <p className="text-xs text-gray-500">
+                              {contract.source?.toUpperCase()} • {timeAgoOrDate(contract.timestamp)}
+                            </p>
                           </div>
                         </div>
 
@@ -562,16 +910,25 @@ const NewContracts: React.FC = () => {
                             {(contract.riskLevel || 'medium').toUpperCase()}
                           </span>
 
-                          {contract.verified ? (
-                            <FaCheckCircle className="text-green-400" />
+                          {/* Verification badge: true/false/unknown */}
+                          {contract.verified === true ? (
+                            <span className="flex items-center gap-1 text-green-400" title="Verified">
+                              <FaCheckCircle /> Verified
+                            </span>
+                          ) : contract.verified === false ? (
+                            <span className="flex items-center gap-1 text-red-400" title="Unverified">
+                              <FaExclamationTriangle /> Unverified
+                            </span>
                           ) : (
-                            <FaExclamationTriangle className="text-red-400" />
+                            <span className="px-2 py-1 rounded text-xs bg-gray-800 text-gray-300" title="Verification unknown">
+                              Unknown
+                            </span>
                           )}
 
                           <button
                             onClick={(e) => { e.stopPropagation(); handleAnalyze(contract); }}
                             disabled={!!analyzing}
-                            className="ml-2 px-3 py-1 rounded bg-blue-600 text-sm flex items-center gap-2"
+                            className="ml-2 px-3 py-1 rounded bg-blue-600 text-sm flex items-center gap-2 hover:bg-blue-700 disabled:bg-gray-700"
                             title="Analyze this contract"
                           >
                             {analyzing === contract.address ? 'Analyzing...' : <><FaPlayCircle /> Analyze</>}
@@ -579,22 +936,33 @@ const NewContracts: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
                         <div>
                           <span className="text-gray-400">Deployer:</span>
                           <p className="font-mono">{formatAddress(contract.deployer || '')}</p>
                         </div>
                         <div>
                           <span className="text-gray-400">Status:</span>
-                          <p className={contract.verified ? 'text-green-400' : 'text-red-400'}>
-                            {contract.verified ? 'Verified' : 'Unverified'}
+                          <p className={
+                            contract.verified === true ? 'text-green-400'
+                            : contract.verified === false ? 'text-red-400'
+                            : 'text-gray-300'
+                          }>
+                            {contract.verified === true ? 'Verified' : contract.verified === false ? 'Unverified' : 'Unknown'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Interactions:</span>
+                          <p className="font-semibold flex items-center gap-2">
+                            <FaChartBar className="text-cyan-400" />
+                            {typeof interactions === 'number' ? interactions.toLocaleString() : '—'}
                           </p>
                         </div>
                       </div>
 
                       <div>
                         <span className="text-gray-400 text-sm">AI Analysis:</span>
-                        <p className="text-sm mt-1">{contract.aiSummary || 'Pending analysis'}</p>
+                        <p className="text-sm mt-1 whitespace-pre-wrap">{contract.aiSummary || 'Pending analysis'}</p>
                       </div>
                     </div>
                   );

@@ -30,6 +30,7 @@ const isHex64 = (s: string) => /^[0-9a-fA-F]{64}$/.test(s);
 const isTxHashLike = (s: string) => /^(0x)?[0-9a-fA-F]{64}$/.test(s);
 const isBlockNumberLike = (s: string) => /^\d{1,12}$/.test(s);
 const isSeiBech32 = (s: string) => /^sei1[0-9a-z]{20,80}$/i.test(s);
+const isEvmAddress = (s: string) => /^0x[0-9a-fA-F]{40}$/.test(s);
 const short = (s: string) => (s.length <= 24 ? s : `${s.slice(0, 12)}…${s.slice(-12)}`);
 
 const getTransactionSafe = async (hash: string) => {
@@ -192,6 +193,28 @@ const Explorer = () => {
           }
         }
 
+        // 3b) EVM address or contract (0x...)?
+        if (isEvmAddress(q)) {
+          const evmContract = await BlockchainService.getContract('evm', q);
+          if (evmContract) {
+            sugg.push({
+              type: 'contract',
+              id: q,
+              label: 'Contract (EVM)',
+              sublabel: short(q)
+            });
+          } else {
+            // Try to map to a Sei bech32 address; if found, suggest the Sei address
+            const mappedSei = await BlockchainService.getSeiFromEvmAddress(q);
+            if (mappedSei && isSeiBech32(mappedSei)) {
+              sugg.push({ type: 'address', id: mappedSei, label: 'Address', sublabel: short(mappedSei) });
+            } else {
+              // As a fallback, still allow navigating to the 0x address page
+              sugg.push({ type: 'address', id: q, label: 'EVM Address', sublabel: short(q) });
+            }
+          }
+        }
+
         // 4) Backend /search fallback (if implemented)
         if (sugg.length === 0) {
           const res = await BlockchainService.search(q);
@@ -218,6 +241,9 @@ const Explorer = () => {
         }
         if (sugg.length === 0 && isSeiBech32(q)) {
           sugg.push({ type: 'address', id: q, label: 'Address', sublabel: short(q) });
+        }
+        if (sugg.length === 0 && isEvmAddress(q)) {
+          sugg.push({ type: 'address', id: q, label: 'EVM Address', sublabel: short(q) });
         }
 
         setSuggestions(sugg);
@@ -252,6 +278,7 @@ const Explorer = () => {
     if (isBlockNumberLike(q)) return navigate(`/block/${q}`);
     if (isTxHashLike(q) || isHex64(q)) return navigate(`/transaction/${q.startsWith('0x') ? q : `0x${q}`}`);
     if (isSeiBech32(q)) return navigate(`/address/${q}`);
+    if (isEvmAddress(q)) return navigate(`/address/${q}`);
 
     // Last attempt: backend search
     try {
@@ -268,84 +295,105 @@ const Explorer = () => {
   };
 
   return (
-    <main className="py-10 px-10 text-white font-sans">
+    <main className="py-30 px-10 text-white font-sans">
       {/* Header Section */}
-      <section className="border rounded-full bg-gradient-to-r from-pink-600 to-purple-600 p-10 mb-10">
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col gap-3">
-            <h1 className="text-xl font-bold">SeiGuard AI Explorer</h1>
-            <h2>AI-Enhanced Blockchain Analysis</h2>
-          </div>
+      <section className="border rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 p-6 sm:p-8 lg:p-10 mb-10">
+  <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6">
+    
+    {/* Left Text */}
+    <div className="flex flex-col gap-2 sm:gap-3 text-center lg:text-left">
+      <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">
+        SeiGuard AI Explorer
+      </h1>
+      <h2 className="text-sm sm:text-base lg:text-lg text-gray-100">
+        AI-Enhanced Blockchain Analysis
+      </h2>
+    </div>
 
-          <div className="relative flex items-center w-full max-w-2xl">
-            <FaSearch className="absolute left-4 text-white text-lg peer-focus:rotate-6 peer-focus:scale-105 transition-all" />
-            <input
-              maxLength={700}
-              placeholder="Search an address, transaction, block or token ..."
-              spellCheck="false"
-              className="peer truncate rounded-full w-full h-10 lg:h-[50px] pl-12 pr-8 text-h5 text-white placeholder-white border border-white bg-white/20 hover:bg-white/30 focus:bg-white/40 outline-none transition-all duration-300"
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setActiveIndex((i) => Math.min(suggestions.length - 1, i + 1));
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setActiveIndex((i) => Math.max(0, i - 1));
-                } else if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSearch();
-                }
-              }}
-            />
-            <button
-              onClick={handleSearch}
-              disabled={loading}
-              className="absolute right-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-full text-sm transition-colors"
-            >
-              {loading ? 'Searching...' : 'Search'}
-            </button>
+    {/* Search Bar */}
+    <div className="relative flex items-center w-full max-w-full sm:max-w-xl lg:max-w-2xl mx-auto lg:mx-0">
+      <FaSearch className="absolute left-4 text-white text-lg peer-focus:rotate-6 peer-focus:scale-105 transition-all" />
+      
+      <input
+        maxLength={700}
+        placeholder="Search an address, transaction, block or token ..."
+        spellCheck="false"
+        className="peer truncate rounded-full w-full h-10 sm:h-11 lg:h-[50px] pl-12 pr-20 text-sm sm:text-base text-white placeholder-white border border-white bg-white/20 hover:bg-white/30 focus:bg-white/40 outline-none transition-all duration-300"
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActiveIndex((i) => Math.min(suggestions.length - 1, i + 1));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActiveIndex((i) => Math.max(0, i - 1));
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSearch();
+          }
+        }}
+      />
 
-            {/* Suggestions dropdown */}
-            {searchQuery.trim().length > 0 && (
-              <div className="absolute top-full mt-2 w-full bg-[#0b1220] rounded-xl shadow-xl overflow-hidden z-50">
-                {searching ? (
-                  <div className="p-4 space-y-3">
-                    <div className="h-4 w-28 bg-gray-700 rounded animate-pulse"></div>
-                    <div className="h-8 w-full bg-gray-700 rounded animate-pulse"></div>
+      {/* Search Button */}
+      <button
+        onClick={handleSearch}
+        disabled={loading}
+        className="absolute right-2 bg-blue-600 hover:bg-blue-700 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm transition-colors"
+      >
+        {loading ? 'Searching...' : 'Search'}
+      </button>
+
+      {/* Suggestions Dropdown */}
+      {searchQuery.trim().length > 0 && (
+        <div className="absolute top-full mt-2 w-full bg-[#0b1220] rounded-xl shadow-xl overflow-hidden z-50">
+          {searching ? (
+            <div className="p-4 space-y-3">
+              <div className="h-4 w-28 bg-gray-700 rounded animate-pulse"></div>
+              <div className="h-8 w-full bg-gray-700 rounded animate-pulse"></div>
+            </div>
+          ) : suggestions.length === 0 ? (
+            <div className="p-4 text-sm text-gray-400">No results</div>
+          ) : (
+            <div className="divide-y divide-gray-800">
+              {suggestions.map((s, idx) => (
+                <div
+                  key={`${s.type}-${s.id}-${idx}`}
+                  className={`p-4 cursor-pointer hover:bg-gray-800 ${idx === activeIndex ? 'bg-gray-800' : ''}`}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                  onClick={() => {
+                    if (s.type === 'tx') navigate(`/transaction/${s.id}`);
+                    else if (s.type === 'block') navigate(`/block/${s.id}`);
+                    else if (s.type === 'contract') navigate(`/contract/${s.id}`);
+                    else navigate(`/address/${s.id}`);
+                  }}
+                >
+                  <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+                    {s.type === 'tx'
+                      ? 'Transaction'
+                      : s.type === 'block'
+                      ? 'Block'
+                      : s.type === 'contract'
+                      ? 'Contract'
+                      : 'Address'}
                   </div>
-                ) : suggestions.length === 0 ? (
-                  <div className="p-4 text-sm text-gray-400">No results</div>
-                ) : (
-                  <div className="divide-y divide-gray-800">
-                    {suggestions.map((s, idx) => (
-                      <div
-                        key={`${s.type}-${s.id}-${idx}`}
-                        className={`p-4 cursor-pointer hover:bg-gray-800 ${idx === activeIndex ? 'bg-gray-800' : ''}`}
-                        onMouseEnter={() => setActiveIndex(idx)}
-                        onClick={() => {
-                          if (s.type === 'tx') navigate(`/transaction/${s.id}`);
-                          else if (s.type === 'block') navigate(`/block/${s.id}`);
-                          else if (s.type === 'contract') navigate(`/contract/${s.id}`);
-                          else navigate(`/address/${s.id}`);
-                        }}
-                      >
-                        <div className="text-xs uppercase tracking-wide text-gray-400 mb-1">
-                          {s.type === 'tx' ? 'Transaction' : s.type === 'block' ? 'Block' : s.type === 'contract' ? 'Contract' : 'Address'}
-                        </div>
-                        <div className="text-white">{s.label}</div>
-                        {s.sublabel && <div className="text-xs text-blue-300 font-mono">{s.sublabel}</div>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                  <div className="text-white">{s.label}</div>
+                  {s.sublabel && (
+                    <div className="text-xs text-blue-300 font-mono">
+                      {s.sublabel}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </section>
+      )}
+    </div>
+  </div>
+</section>
+
 
       {/* Dashboard Section */}
       <section>

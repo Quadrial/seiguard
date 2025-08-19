@@ -12,13 +12,15 @@ import Chatbot from './pages/Chatbot'
 const MyRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      {/* Make AI Chatbot the homepage */}
+      <Route path="/" element={<Chatbot />} />
+      {/* Move the old homepage to About */}
+      <Route path="/about" element={<Home />} />
       <Route path="/explorer" element={<Explorer />} />
       <Route path="/suspicious" element={<Suspicious/>} />
       <Route path="/contracts" element={<NewContracts/>} />
       <Route path="/wallet" element={<WalletView/>} />
       <Route path="/transaction/:hash" element={<TransactionDetails/>} />
-      
       <Route path="/address/:address" element={<AddressDetails/>} />
       <Route path="/chatbot" element={<Chatbot/>} />
     </Routes>

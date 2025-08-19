@@ -43,7 +43,7 @@ const WalletView: React.FC = () => {
   };
 
   return (
-    <div className="mt-10 px-10 text-white font-sans">
+    <div className="py-30 px-10 text-white font-sans">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">SeiGuard AI Wallet Analysis</h1>
         
