@@ -833,20 +833,36 @@ export class BlockchainService {
       const res = await fetch(url);
       if (!res.ok) return [];
       const data = await res.json();
-      const list = Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : (Array.isArray(data.txs) ? data.txs : []));
-      return list.map((tx: any) => ({
+      
+      // Handle the pagination structure provided by the API
+      // The response has the structure: { pagination: {...}, updatedAt: "string", items: [...] }
+      const items = Array.isArray(data.items) ? data.items :
+                   Array.isArray(data) ? data :
+                   Array.isArray(data.data) ? data.data :
+                   Array.isArray(data.txs) ? data.txs : [];
+      
+      return items.map((tx: any) => ({
         hash: tx.hash ?? tx.txhash ?? '',
         height: tx.height ?? tx.block_height ?? '',
-        timestamp: tx.timestamp ?? tx.block_time ?? '',
+        timestamp: tx.timestamp ?? tx.time ?? '',
         from: tx.from ?? tx.sender ?? tx.signer ?? '',
         to: tx.to ?? tx.recipient ?? '',
         type: tx.type ?? tx.msg_type ?? '',
-        gasUsed: tx.gas_used ?? tx.gasUsed ?? '',
-        fee:
-          tx.fee ??
-          tx.tx?.auth_info?.fee?.amount?.[0]?.amount ??
-          tx.fee_amount ??
-          '',
+        gasUsed: tx.gas?.used ?? tx.gasUsed ?? tx.gas_used ?? '',
+        fee: tx.fee ?? '',
+        // Map additional fields from the user-provided structure
+        code: tx.code ?? 0,
+        gas: tx.gas ?? { wanted: "0", used: "0" },
+        feeDenom: tx.feeDenom ?? 'usei',
+        memo: tx.memo ?? '',
+        timeoutHeight: tx.timeoutHeight ?? 0,
+        messages: tx.messages ?? [],
+        sender: tx.sender ?? tx.from ?? '',
+        rawLog: tx.rawLog ?? '',
+        events: tx.events ?? '',
+        blobs: tx.blobs ?? [],
+        signer: tx.signer ?? tx.sender ?? '',
+        tokenTransfersCount: tx.tokenTransfersCount ?? 0
       }));
     } catch (err) {
       console.error(`getAccountTransactions(${address}) error:`, err);

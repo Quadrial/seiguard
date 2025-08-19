@@ -249,7 +249,7 @@ Question: ${query}`;
         );
       });
     } else {
-      lines.push('- Recent transactions: none shown by the API');
+      lines.push('- Recent transactions: None found');
     }
 
     // If the user asked about “contract” and the address looks like a contract, try to add a note
