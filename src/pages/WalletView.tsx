@@ -43,13 +43,12 @@ const WalletView: React.FC = () => {
   };
 
   return (
-    <div className="py-30 px-10 text-white font-sans">
+    <div className="py-24 md:py-24 px-2 sm:px-4 md:px-8 lg:px-10 text-white font-sans">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">SeiGuard AI Wallet Analysis</h1>
-        
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8">SeiGuard AI Wallet Analysis</h1>
         {/* Search Section */}
-        <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-8">
-          <div className="flex gap-4">
+        <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md mb-6 sm:mb-8">
+          <div className="flex flex-col sm:flex-row gap-4">
             <input
               type="text"
               placeholder="Enter Sei wallet address..."
@@ -69,8 +68,8 @@ const WalletView: React.FC = () => {
         </div>
 
         {loading && (
-          <div className="text-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+          <div className="text-center py-16 sm:py-20">
+            <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-cyan-400 mx-auto mb-4"></div>
             <p className="text-gray-400">AI is analyzing the wallet...</p>
           </div>
         )}
@@ -78,19 +77,19 @@ const WalletView: React.FC = () => {
         {wallet && (
           <>
             {/* Wallet Info */}
-            <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-6">
-              <div className="flex items-center gap-3 mb-4">
-                <FaCoins className="text-2xl text-yellow-400" />
-                <h3 className="text-xl font-semibold">Wallet Information</h3>
+            <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+                <FaCoins className="text-xl sm:text-2xl text-yellow-400" />
+                <h3 className="text-lg sm:text-xl font-semibold">Wallet Information</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-400">Address</p>
                   <p className="font-mono text-sm break-all">{wallet.address}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-400">Balance</p>
-                  <p className="text-xl font-bold text-yellow-400">
+                  <p className="text-lg sm:text-xl font-bold text-yellow-400">
                     {(parseInt(wallet.balance) / 1000000).toFixed(6)} SEI
                   </p>
                 </div>
@@ -99,10 +98,10 @@ const WalletView: React.FC = () => {
 
             {/* AI Analysis */}
             {aiAnalysis && (
-              <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <FaBrain className="text-2xl text-cyan-400" />
-                  <h3 className="text-xl font-semibold">AI Analysis</h3>
+              <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md mb-4 sm:mb-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+                  <FaBrain className="text-xl sm:text-2xl text-cyan-400" />
+                  <h3 className="text-lg sm:text-xl font-semibold">AI Analysis</h3>
                 </div>
                 <div className="space-y-4">
                   <div>

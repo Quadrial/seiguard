@@ -33,10 +33,10 @@ const Header = () => {
         {/* Right Side Icons (Desktop & Tablet) */}
         <div className="hidden sm:flex items-center space-x-3 text-white">
           <FaSearch className="hover:text-gray-300 cursor-pointer" />
-          <button className="bg-[#0c1a24] hover:bg-[#162e3f] px-3 py-1 rounded-full flex items-center space-x-2 text-sm">
+          {/* <button className="bg-[#0c1a24] hover:bg-[#162e3f] px-3 py-1 rounded-full flex items-center space-x-2 text-sm">
             <FaExchangeAlt />
             <span>Mainnet</span>
-          </button>
+          </button> */}
           <div className="bg-gradient-to-r from-pink-600 to-orange-400 p-2 rounded-full">
             <FaCog className="text-white" />
           </div>

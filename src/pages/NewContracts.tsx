@@ -752,7 +752,7 @@ const NewContracts: React.FC = () => {
   const formatAddress = (address: string) => {
     if (!address) return '';
     if (address.length <= 24) return address;
-    return `${address.substring(0, 12)}...${address.substring(address.length - 12)}`;
+    return `${address.substring(0, 10)}...${address.substring(address.length - 10)}`;
   };
 
   const timeAgoOrDate = (ts?: string) => {
@@ -772,9 +772,9 @@ const NewContracts: React.FC = () => {
   const aiAnalyzedPercent = total ? Math.round((aiAnalyzedCount / total) * 100) : 0;
 
   return (
-    <div className="py-30 px-10 text-white font-sans">
+    <div className="py-24 px-2 sm:px-4 md:px-8 lg:px-10 text-white font-sans">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-start justify-between mb-6 gap-4">
+        <div className="flex flex-col md:flex-row items-center text-center md:text-start md:items-start md:justify-between mb-6 gap-4">
           <div>
             <h1 className="text-3xl font-bold">Smart Contract Deployments</h1>
             <p className="text-sm text-gray-400 mt-1">Filter, select and analyze contracts.</p>
@@ -815,7 +815,7 @@ const NewContracts: React.FC = () => {
             </select>
           </div>
 
-          <div className="ml-auto flex gap-3">
+          <div className="md:ml-auto flex gap-3">
             <div className="bg-[#111827] p-3 rounded text-center">
               <div className="text-sm text-gray-400">Total</div>
               <div className="font-bold text-blue-400">{total}</div>
@@ -865,7 +865,7 @@ const NewContracts: React.FC = () => {
                       className={`p-6 cursor-pointer ${isSelected ? 'bg-gray-800' : ''}`}
                       onClick={() => handleSelect(contract)}
                     >
-                      <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col md:flex-row items-start justify-between mb-2 sm:mb-4 gap-2">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-full bg-blue-900 flex items-center justify-center">
                             <FaDotCircle className="text-blue-400" />
@@ -931,7 +931,7 @@ const NewContracts: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 text-sm mb-2 sm:mb-4">
                         <div>
                           <span className="text-gray-400">Deployer:</span>
                           <p className="font-mono">{formatAddress(contract.deployer || '')}</p>

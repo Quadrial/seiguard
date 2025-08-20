@@ -181,7 +181,7 @@ const TransactionDetails: React.FC = () => {
 
   if (!tx) {
     return (
-      <div className="mt-10 px-4 sm:px-6 lg:px-8 text-white font-sans">
+      <div className="py-20 md:py-10 px-4 sm:px-6 lg:px-8 text-white font-sans">
         <div className="max-w-4xl mx-auto py-10 px-6 bg-[#111827] rounded-lg shadow-md">
           <div className="flex items-center gap-4 mb-6">
             <button onClick={() => navigate(-1)} className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm transition-colors">
@@ -199,10 +199,10 @@ const TransactionDetails: React.FC = () => {
   const isCopied = (text: string) => copiedText === text;
 
   return (
-    <div className="mt-10 px-4 sm:px-6 lg:px-8 text-white font-sans">
+    <div className="py-24 md:py-24 px-2 sm:px-4 md:px-8 lg:px-10 text-white font-sans">
       <div className="max-w-6xl mx-auto">
         {/* Back button and Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md text-sm transition-colors"
@@ -215,12 +215,12 @@ const TransactionDetails: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-[#111827] p-6 rounded-lg shadow-md">
+        <div className="bg-[#111827] p-4 sm:p-6 rounded-lg shadow-md">
           {/* Transaction Hash Header */}
-          <div className="flex items-center justify-between border-b border-gray-700 pb-4 mb-4">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-700 pb-4 mb-4 gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <FaCircle className={`text-${tx.status === true ? 'green' : 'red'}-500 text-sm`} />
-              <h1 className="text-xl font-bold break-all">{short(tx.hash, 15, 15)}</h1>
+              <h1 className="text-lg sm:text-xl font-bold break-all">{short(tx.hash, 15, 15)}</h1>
               <button onClick={() => copy(tx.hash)} className="text-gray-400 hover:text-white" title="Copy Transaction Hash">
                 <FaCopy />
               </button>
@@ -231,10 +231,8 @@ const TransactionDetails: React.FC = () => {
           </div>
 
           {/* Details Tabs */}
-          <div className="flex border-b border-gray-700 mb-4">
-            <button className="py-2 px-4 text-sm font-medium text-blue-400 border-b-2 border-blue-400">
-              Details
-            </button>
+          <div className="flex flex-col sm:flex-row border-b border-gray-700 mb-4">
+            <button className="py-2 px-4 text-sm font-medium text-blue-400 border-b-2 border-blue-400">Details</button>
             {/* Add other tabs like "Token Transfers", "Logs", "State" if you implement them */}
             {/* <button className="py-2 px-4 text-sm font-medium text-gray-400 hover:text-white">Token Transfers ({tx.tokenTransfersCount || 0})</button> */}
             {/* <button className="py-2 px-4 text-sm font-medium text-gray-400 hover:text-white">Logs ({tx.logsCount || 0})</button> */}
@@ -263,7 +261,7 @@ const TransactionDetails: React.FC = () => {
 
             <LabeledRow label="Hash">
               <Link to={`/transaction/${tx.hash}`} className="text-blue-400 hover:underline">
-                {short(tx.hash, 15, 15)}
+                {short(tx.hash, 8, 8)}
               </Link>
               <button onClick={() => copy(tx.hash)} className="text-gray-400 hover:text-white">
                 <FaCopy />
@@ -275,7 +273,7 @@ const TransactionDetails: React.FC = () => {
               <LabeledRow label="From">
                 <TinyAvatar seed={tx.from} />
                 <Link to={`/address/${tx.from}`} className="text-blue-400 hover:underline">
-                  {short(tx.from!, 15, 15)}
+                  {short(tx.from!, 8, 8)}
                 </Link>
                 <button onClick={() => copy(tx.from!)} className="text-gray-400 hover:text-white">
                   <FaCopy />
@@ -299,7 +297,7 @@ const TransactionDetails: React.FC = () => {
 
             <LabeledRow label="Value">
               <span>{valueSei.toFixed(4)} SEI</span>
-              <span className="text-gray-400">~{valueUsd !== null ? `$${valueUsd.toFixed(3)}` : '\$0.000'}</span>
+              <span className="text-gray-400">~{valueUsd !== null ? `$${valueUsd.toFixed(3)}` : '$0.000'}</span>
             </LabeledRow>
 
             {tx.position !== undefined && (
@@ -316,7 +314,7 @@ const TransactionDetails: React.FC = () => {
 
             <LabeledRow label="Transaction fee">
               <span>{feeSei.toFixed(6)} SEI</span>
-              <span className="text-gray-400">~{feeUsd !== null ? `$${feeUsd.toFixed(3)}` : '\$0.000'}</span>
+              <span className="text-gray-400">~{feeUsd !== null ? `$${feeUsd.toFixed(3)}` : '$0.000'}</span>
             </LabeledRow>
 
             {tx.gasUsedByTransaction !== undefined && ( // Assuming this field from your backend

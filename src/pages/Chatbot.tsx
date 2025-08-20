@@ -368,7 +368,7 @@ Question: ${query}`;
   // helpers removed (unused)
 
   return (
-    <main className="pt-24 px-4 sm:px-6 lg:px-8 text-white font-sans min-h-screen bg-[#0b1220]">
+    <main className="pt-24 pb-5 px-4 sm:px-6 lg:px-8 text-white font-sans min-h-screen bg-[#0b1220]">
       <section className="border rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 p-6 mb-6 shadow-lg">
         <div className="flex justify-between items-center">
           <div className="flex flex-col gap-1">

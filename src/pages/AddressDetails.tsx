@@ -140,7 +140,7 @@ const AddressDetails: React.FC = () => {
     const evmSei = evmAccount ? weiToSei(evmAccount.balance) : 0;
     const evmTotalUsd = priceUsd ? evmSei * priceUsd : null;
     return (
-      <div className="mt-10 px-10 text-white font-sans">
+      <div className="mt-16 px-10 text-white font-sans">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-4 mb-6">
             <button onClick={() => navigate('/explorer')} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg">
@@ -149,7 +149,7 @@ const AddressDetails: React.FC = () => {
           </div>
 
           {/* Account hero (EVM) */}
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-6">
+          <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-6 ">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-3">
@@ -240,22 +240,22 @@ const AddressDetails: React.FC = () => {
   }
 
   return (
-    <div className="mt-10 px-10 text-white font-sans">
+    <div className="py-24 md:py-24 px-2 sm:px-4 md:px-8 lg:px-10 text-white font-sans">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
           <button onClick={() => navigate('/explorer')} className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg">
             <FaArrowLeft /> Back to Explorer
           </button>
         </div>
 
         {/* Account hero */}
-        <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-3">
-                <FaUserCircle className="text-4xl text-gray-400" />
-                <span className="text-2xl font-semibold">{short(account.address)}</span>
+        <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md mb-6">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <FaUserCircle className="text-3xl sm:text-4xl text-gray-400" />
+                <span className="text-lg sm:text-2xl font-semibold break-all">{short(account.address)}</span>
                 <button onClick={() => copy(account.address, 'addr')} className="text-gray-400 hover:text-white">
                   <FaCopy />
                 </button>
@@ -264,9 +264,9 @@ const AddressDetails: React.FC = () => {
 
               {/* EVM line like the explorer */}
               {evmAddress && (
-                <div className="ml-14 mt-1 text-sm text-gray-400 flex items-center gap-2">
+                <div className="ml-0 sm:ml-14 mt-1 text-sm text-gray-400 flex items-center gap-2 flex-wrap">
                   <span>Ethereum</span>
-                  <span className="font-mono">{short(evmAddress)}</span>
+                  <span className="font-mono break-all">{short(evmAddress)}</span>
                   <button onClick={() => copy(evmAddress, 'evm')} className="text-gray-400 hover:text-white">
                     <FaCopy />
                   </button>
@@ -274,7 +274,7 @@ const AddressDetails: React.FC = () => {
                 </div>
               )}
 
-              <div className="ml-14 mt-2 flex flex-wrap gap-2 text-xs">
+              <div className="ml-0 sm:ml-14 mt-2 flex flex-wrap gap-2 text-xs">
                 <span className="px-2 py-1 rounded-full bg-gray-800 border border-gray-700">Delegations: {account.delegationsCount ?? 0}</span>
                 <span className="px-2 py-1 rounded-full bg-gray-800 border border-gray-700">CW20: {account.cw20TokensCount ?? 0}</span>
                 <span className="px-2 py-1 rounded-full bg-gray-800 border border-gray-700">NFTs: {account.cw721TokensCount ?? 0}</span>
@@ -282,24 +282,24 @@ const AddressDetails: React.FC = () => {
               </div>
             </div>
 
-            <div className="text-right">
-              <div className="text-2xl font-bold">{totalUsd !== null ? `$${totalUsd.toFixed(3)}` : '\$0.000'}</div>
+            <div className="text-right min-w-[120px]">
+              <div className="text-lg sm:text-2xl font-bold">{totalUsd !== null ? `$${totalUsd.toFixed(3)}` : '\$0.000'}</div>
               <div className="text-sm text-gray-400">{totalSei.toFixed(6)} sei</div>
             </div>
           </div>
         </div>
 
         {/* Tokenomics + Latest Transactions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {/* Tokenomics */}
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
               <h2 className="text-lg font-bold">Tokenomics</h2>
               <div className="text-xs text-gray-400">Available / Locked</div>
             </div>
 
-            <div className="flex justify-between items-baseline mb-4">
-              <div className="text-2xl font-semibold">{avail.toFixed(6)} sei</div>
+            <div className="flex flex-col sm:flex-row justify-between items-baseline mb-4 gap-2">
+              <div className="text-lg sm:text-2xl font-semibold">{avail.toFixed(6)} sei</div>
               <div className="text-gray-400">/ {(totalSei - avail).toFixed(6)} sei</div>
             </div>
 
@@ -325,12 +325,11 @@ const AddressDetails: React.FC = () => {
           </div>
 
           {/* Latest Transactions */}
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md max-h-[400px] overflow-y-auto overflow-x-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
               <h2 className="text-lg font-bold">Latest Transactions</h2>
               <span className="text-xs text-gray-400">{account.txsCount ?? 0} total</span>
             </div>
-
             {transactions.length === 0 ? (
               <div className="text-center text-gray-400 py-10">
                 <FaExchangeAlt className="text-5xl mb-4 mx-auto" />
@@ -340,7 +339,7 @@ const AddressDetails: React.FC = () => {
               transactions.map((tx) => (
                 <div
                   key={tx.hash}
-                  className="flex justify-between items-center border-b border-gray-700 py-3 last:border-b-0 cursor-pointer hover:bg-gray-800 transition-colors"
+                  className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-gray-700 py-3 last:border-b-0 cursor-pointer hover:bg-gray-800 transition-colors"
                   onClick={() => navigate(`/transaction/${tx.hash}`)}
                 >
                   <div className="flex items-center gap-3">

@@ -547,9 +547,9 @@ const Suspicious: React.FC = () => {
   };
 
   return (
-    <div className="py-30 px-10 text-white font-sans ">
+    <div className="py-24 px-2 sm:px-4 md:px-8 lg:px-10 text-white font-sans">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-4">Suspicious Activity Detection</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-8">Suspicious Activity Detection</h1>
 
         {/* Controls bar */}
         <div className=" items-center gap-3 mb-4 hidden">
@@ -588,8 +588,8 @@ const Suspicious: React.FC = () => {
         </div>
 
         {/* Search / analyze */}
-        <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-6">
-          <div className="flex gap-4 items-center">
+        <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
             <input
               type="text"
               placeholder="Enter transaction hash to analyze..."
@@ -617,8 +617,8 @@ const Suspicious: React.FC = () => {
         </div>
 
         {/* Detection rules & AI summary */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md">
             <div className="flex items-center gap-3 mb-4">
               <FaShieldAlt className="text-2xl text-blue-400" />
               <h3 className="text-xl font-semibold">Detection Rules</h3>
@@ -643,7 +643,7 @@ const Suspicious: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md">
+          <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md">
             <div className="flex items-center gap-3 mb-4">
               <FaBrain className="text-2xl text-cyan-400" />
               <h3 className="text-xl font-semibold">AI Analysis</h3>
@@ -672,7 +672,7 @@ const Suspicious: React.FC = () => {
         </div>
 
         {/* Filter for scanned suspicious items */}
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
           <label className="text-gray-400">Filter severity:</label>
           <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value as any)} className="bg-[#111827] p-2 rounded">
             <option value="all">All</option>
@@ -684,7 +684,7 @@ const Suspicious: React.FC = () => {
         </div>
 
         {/* Suspicious Transactions List */}
-        <div className="bg-[#111827] p-6 rounded-xl shadow-md mb-8">
+        <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md mb-6 sm:mb-8">
           <div className="flex items-center gap-3 mb-4">
             <FaExclamationTriangle className="text-2xl text-red-400" />
             <h3 className="text-xl font-semibold">Detected Suspicious Transactions</h3>
@@ -755,18 +755,18 @@ const Suspicious: React.FC = () => {
         </div>
 
         {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md text-center">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md text-center">
             <FaChartLine className="text-3xl text-green-400 mx-auto mb-3" />
             <h3 className="text-2xl font-bold text-green-400">Heuristic</h3>
             <p className="text-gray-400">Rule-based detection</p>
           </div>
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md text-center">
+          <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md text-center">
             <FaServer className="text-3xl text-blue-400 mx-auto mb-3" />
             <h3 className="text-2xl font-bold text-blue-400">Real-time</h3>
             <p className="text-gray-400">Continuous scanning</p>
           </div>
-          <div className="bg-[#111827] p-6 rounded-xl shadow-md text-center">
+          <div className="bg-[#111827] p-4 sm:p-6 rounded-xl shadow-md text-center">
             <FaExchangeAlt className="text-3xl text-purple-400 mx-auto mb-3" />
             <h3 className="text-2xl font-bold text-purple-400">Rules</h3>
             <p className="text-gray-400">Multiple detection rules</p>
