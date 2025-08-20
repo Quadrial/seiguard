@@ -1,0 +1,10 @@
+/* Netlify SPA rewrite: send all requests to index.html except for files in /public */
+[[redirects]]
+  from = "/api/*"
+  to = "/api/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
