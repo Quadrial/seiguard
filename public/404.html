@@ -1,0 +1,15 @@
+<html>
+  <head>
+    <meta http-equiv="refresh" content="0; url=/'" />
+  </head>
+  <body>
+    <script>
+      // Netlify SPA redirect: send all non-file requests to index.html
+      var path = window.location.pathname;
+      if (!path.match(/\.[a-zA-Z0-9]+$/)) {
+        window.location.replace('/');
+      }
+    </script>
+    <p>Redirecting...</p>
+  </body>
+</html>
